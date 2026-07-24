@@ -1,6 +1,7 @@
 import {
   assertEvidenceEnvelopeV1,
   type CapabilityRecord,
+  type ChangedHunk,
   type ChangedFile,
   type EvidenceEnvelopeV1,
   type EvidenceFact,
@@ -26,7 +27,7 @@ export interface AnalyzeChangeOptions {
   };
 }
 
-function summarizeChangedFiles(hunks: EvidenceEnvelopeV1["candidates"] extends never ? never : Parameters<typeof collectFileSignalFacts>[0]): ChangedFile[] {
+function summarizeChangedFiles(hunks: readonly ChangedHunk[]): ChangedFile[] {
   const files = new Map<string, ChangedFile>();
   for (const hunk of hunks) {
     const current = files.get(hunk.path);

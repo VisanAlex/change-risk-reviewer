@@ -56,13 +56,17 @@ function normalizeResultPath(path: string): string {
   return path.replace(/^\.[/\\]/u, "").replaceAll("\\", "/");
 }
 
-async function isImportReference(root: string, path: string, terms: readonly string[]): Promise<boolean> {
+async function isImportReference(
+  root: string,
+  canonicalRoot: string,
+  path: string,
+  terms: readonly string[],
+): Promise<boolean> {
   const target = resolve(root, ...path.split("/"));
   const pathFromRoot = relative(root, target);
   if (pathFromRoot.startsWith("..") || isAbsolute(pathFromRoot)) {
     return false;
   }
-  const canonicalRoot = await realpath(root);
   const canonicalTarget = await realpath(target);
   const canonicalRelative = relative(canonicalRoot, canonicalTarget);
   if (canonicalRelative.startsWith("..") || isAbsolute(canonicalRelative)) {
@@ -107,6 +111,7 @@ export async function collectReferenceFacts(
   }
 
   const facts: EvidenceFact[] = [];
+  const canonicalRoot = await realpath(repository);
   let truncated = false;
   for (const hunk of hunks) {
     const terms = termsForHunk(hunk);
@@ -155,7 +160,7 @@ export async function collectReferenceFacts(
     const samples = [...matchedPaths].sort().slice(0, 20);
     const importMatches: string[] = [];
     for (const path of [...matchedPaths].sort()) {
-      if (await isImportReference(repository, path, terms)) {
+      if (await isImportReference(repository, canonicalRoot, path, terms)) {
         importMatches.push(path);
       }
     }

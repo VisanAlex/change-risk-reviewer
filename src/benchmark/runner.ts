@@ -137,6 +137,7 @@ async function writeGenerated(
   groups: readonly GeneratedGroup[],
   phase: "base" | "head",
 ): Promise<void> {
+  const files: Record<string, string> = {};
   for (const group of groups) {
     if (!Number.isInteger(group.count) || group.count < 0 || group.count > 500) {
       throw new Error(`Generated group count is outside the benchmark bound: ${group.count}`);
@@ -147,9 +148,10 @@ async function writeGenerated(
     }
     for (let index = 0; index < group.count; index += 1) {
       const path = applyTemplate(group.pathTemplate, index);
-      await writeFiles(repository, { [path]: applyTemplate(contentTemplate, index) });
+      files[path] = applyTemplate(contentTemplate, index);
     }
   }
+  await writeFiles(repository, files);
 }
 
 function fingerprintCapture(capture: EvidenceEnvelopeV1): string {

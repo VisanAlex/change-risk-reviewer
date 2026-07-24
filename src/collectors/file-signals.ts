@@ -5,11 +5,6 @@ const CONTROL_TOKENS = /\b(if|else|switch|case|return|throw|catch|finally|break|
 const PUBLIC_TOKENS =
   /\b(export|public|protected|interface|type|class|def|function|func|module|package|route|handler|endpoint)\b/gu;
 
-export interface ClassifiedHunk {
-  hunk: ChangedHunk;
-  roles: string[];
-}
-
 function normalizedPath(path: string): string {
   return `/${path.toLowerCase().replaceAll("\\", "/")}`;
 }
