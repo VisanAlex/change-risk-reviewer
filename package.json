@@ -1,0 +1,47 @@
+{
+  "name": "change-risk-reviewer",
+  "version": "0.1.0",
+  "description": "Evidence-first review compression for risky code changes.",
+  "private": true,
+  "type": "module",
+  "license": "MIT",
+  "author": "Change Risk Reviewer contributors",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/change-risk-reviewer/change-risk-reviewer.git"
+  },
+  "engines": {
+    "node": ">=24"
+  },
+  "files": [
+    ".agents/",
+    ".claude-plugin/",
+    ".codex-plugin/",
+    "benchmarks/",
+    "docs/",
+    "skills/",
+    "CONTRIBUTING.md",
+    "LICENSE",
+    "README.md",
+    "SECURITY.md"
+  ],
+  "scripts": {
+    "benchmark": "vitest run tests/benchmark",
+    "build:skill": "node scripts/build-skill-runtime.mjs",
+    "check": "npm run typecheck && npm run lint && npm run check:built && npm test && npm run validate:packaging",
+    "check:built": "node scripts/check-built.mjs",
+    "lint": "eslint .",
+    "test": "vitest run",
+    "typecheck": "tsc --noEmit",
+    "validate:packaging": "node scripts/validate-packaging.mjs"
+  },
+  "devDependencies": {
+    "@eslint/js": "^9.32.0",
+    "@types/node": "^24.1.0",
+    "esbuild": "^0.25.8",
+    "eslint": "^9.32.0",
+    "typescript": "^5.8.3",
+    "typescript-eslint": "^8.38.0",
+    "vitest": "^3.2.4"
+  }
+}

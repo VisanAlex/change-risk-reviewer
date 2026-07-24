@@ -1,0 +1,7 @@
+interface:
+  display_name: "Review Change Risk"
+  short_description: "Find hidden impact in large code changes"
+  default_prompt: "Use $review to rank this change's hidden-impact risks and tell me what to inspect first."
+  brand_color: "#C2410C"
+policy:
+  allow_implicit_invocation: true

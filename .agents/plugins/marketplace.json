@@ -1,0 +1,20 @@
+{
+  "name": "change-risk-reviewer",
+  "interface": {
+    "displayName": "Change Risk Reviewer"
+  },
+  "plugins": [
+    {
+      "name": "change-risk-reviewer",
+      "source": {
+        "source": "local",
+        "path": "./"
+      },
+      "policy": {
+        "installation": "AVAILABLE",
+        "authentication": "ON_INSTALL"
+      },
+      "category": "Productivity"
+    }
+  ]
+}

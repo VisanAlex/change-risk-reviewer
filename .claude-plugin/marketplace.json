@@ -1,0 +1,16 @@
+{
+  "name": "change-risk-reviewer",
+  "description": "Evidence-first review compression for risky code changes.",
+  "owner": {
+    "name": "Change Risk Reviewer contributors"
+  },
+  "plugins": [
+    {
+      "name": "change-risk-reviewer",
+      "source": "./",
+      "description": "Find the few changed locations most deserving human review",
+      "category": "Development",
+      "tags": ["code-review", "risk", "git"]
+    }
+  ]
+}

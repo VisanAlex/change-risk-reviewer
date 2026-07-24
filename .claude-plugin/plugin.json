@@ -1,0 +1,13 @@
+{
+  "name": "change-risk-reviewer",
+  "version": "0.1.0",
+  "description": "Find the few changed locations most deserving human review.",
+  "author": {
+    "name": "Change Risk Reviewer contributors"
+  },
+  "homepage": "https://github.com/change-risk-reviewer/change-risk-reviewer",
+  "repository": "https://github.com/change-risk-reviewer/change-risk-reviewer",
+  "license": "MIT",
+  "keywords": ["code-review", "risk", "ai", "git"],
+  "skills": "./skills/"
+}
