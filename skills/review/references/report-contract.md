@@ -25,6 +25,13 @@ change, or UI/CSS/pagination code might need generic manual QA. Those signals
 can appear under tests or unknowns, but they are not findings without a
 specific repository-supported failure path.
 
+When at least one finding is reported and other investigated candidates do not
+clear that bar, close this section with:
+
+```text
+No other changed location had enough evidence for a specific hidden-impact finding.
+```
+
 ## Verified change facts
 
 Summarize only observations that materially explain the ordering. Preserve
@@ -51,10 +58,19 @@ even when every list is empty.
 
 List unavailable collectors, timeouts, truncation, shallow history, missing
 language intelligence, fallback mode, and other bounds.
-Summarize non-zero omission counts from `ReviewInputV1.selection`, including
-eligible candidates beyond the review cap and bounded test-path lists. These
-are deliberate prioritization limits, not evidence that the omitted items were
-semantically reviewed.
+Translate non-zero omissions from `ReviewInputV1.selection` into plain
+developer-facing language. When `omittedEligibleCandidates` is `N` greater than
+zero, say:
+
+```text
+Analysis was bounded; N lower-priority candidates were not investigated by the model.
+```
+
+Do not repeat raw `selectedCandidates`, `eligibleCandidates`, or `omittedFacts`
+counters. Continue to state omissions from bounded changed-file, warning, or
+test-path lists when non-zero because those limits affect what the report could
+observe. These are deliberate prioritization limits, not evidence that omitted
+items were semantically reviewed.
 
 ## Forbidden output
 

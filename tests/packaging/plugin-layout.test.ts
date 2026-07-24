@@ -26,4 +26,19 @@ describe("plugin layout", () => {
     expect(claude.skills).toBe("./skills/");
     await expect(readFile(resolve(root, "skills/review/SKILL.md"), "utf8")).resolves.toContain("name: review");
   });
+
+  it("keeps report restraint and bounded-analysis wording developer-facing", async () => {
+    const contract = await readFile(
+      resolve(root, "skills/review/references/report-contract.md"),
+      "utf8",
+    );
+
+    expect(contract).toContain(
+      "No other changed location had enough evidence for a specific hidden-impact finding.",
+    );
+    expect(contract).toContain(
+      "Analysis was bounded; N lower-priority candidates were not investigated by the model.",
+    );
+    expect(contract).toMatch(/Do not repeat raw .*omittedFacts/u);
+  });
 });
