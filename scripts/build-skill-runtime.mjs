@@ -16,7 +16,7 @@ export async function buildSkillRuntime(outputPath = defaultOutput) {
     bundle: true,
     platform: "node",
     format: "esm",
-    target: "node24",
+    target: "node20",
     packages: "bundle",
     legalComments: "none",
     charset: "utf8",

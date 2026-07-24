@@ -11,11 +11,14 @@ permissions:
 
 jobs:
   core:
-    name: Node 24 / ${{ matrix.os }}
+    name: Node ${{ matrix.node }} / ${{ matrix.os }}
     runs-on: ${{ matrix.os }}
     strategy:
       fail-fast: false
       matrix:
+        node:
+          - 20
+          - 24
         os:
           - ubuntu-latest
           - windows-latest
@@ -24,11 +27,12 @@ jobs:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
         with:
-          node-version: 24
+          node-version: ${{ matrix.node }}
           cache: npm
       - run: npm ci --ignore-scripts
       - run: npm run check
-      - run: npm run benchmark
+      - if: matrix.os == 'ubuntu-latest'
+        run: npm run benchmark
       - run: npm pack --dry-run --ignore-scripts
 
   standards:

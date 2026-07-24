@@ -27,6 +27,36 @@ describe("textual reference evidence", () => {
     expect(envelope.candidates[0]?.band).toBe("elevated");
   });
 
+  it("recognizes PHP use imports in a Laravel and Livewire repository", async () => {
+    const files: Record<string, string> = {
+      "app/Services/PayrollService.php":
+        "<?php\nnamespace App\\Services;\nclass PayrollService { public function visible(): bool { return true; } }\n",
+    };
+    for (let index = 0; index < 8; index += 1) {
+      files[`app/Livewire/PayrollWidget${index}.php`] =
+        `<?php\nnamespace App\\Livewire;\nuse App\\Services\\PayrollService;\nclass PayrollWidget${index} { public function render(PayrollService $service): bool { return $service->visible(); } }\n`;
+    }
+    const repository = await createRepository(files);
+    await writeRepositoryFile(
+      repository,
+      "app/Services/PayrollService.php",
+      "<?php\nnamespace App\\Services;\nclass PayrollService { public function visible(): bool { if ($this->locked) return false; return true; } }\n",
+    );
+
+    const envelope = await analyzeChange({ repository, scope: { kind: "working" } });
+    const serviceHunk = envelope.candidates.find(
+      (candidate) => candidate.location.path === "app/Services/PayrollService.php",
+    );
+    const importBreadth = envelope.facts.find(
+      (fact) =>
+        fact.hunkId === serviceHunk?.hunkId &&
+        fact.reasonCode === "IMPORT_REFERENCE_BREADTH",
+    );
+
+    expect((importBreadth?.value as { count: number }).count).toBe(8);
+    expect(serviceHunk?.band).toBe("elevated");
+  });
+
   it("does not promote comment-only ambiguous identifiers to import evidence", async () => {
     const repository = await createRepository({
       "src/local.ts": "const run = 1;\n",

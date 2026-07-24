@@ -70,11 +70,27 @@ evidence:
 It does not detect whether AI authored the change, compute an opaque risk
 score, execute repository code, or certify that a change is correct.
 
+## Language and framework support
+
+The reviewer is Git-based and language-agnostic. It works on Laravel and
+Livewire, Rails, Django, Spring, Go, and JavaScript repositories without
+installing or invoking Composer, Artisan, PHP, Bundler, Python, Maven, Gradle,
+Go, npm, or the project's test runner.
+
+For Laravel and Livewire, that includes PHP `use` references plus conventional
+policy, route, migration, and test paths. This is conservative repository
+evidence, not a framework-specific semantic call graph.
+
+Node belongs to the machine running Codex or Claude Code, not to the repository
+being reviewed. Node 20 or newer enables the bundled analyzer. If compatible
+Node is unavailable, the skill falls back to a smaller Git- and search-based
+collection and reports the capabilities it lost.
+
 ## Install
 
 The project is an alpha plugin with one canonical `review` skill shared by
 Codex and Claude Code. The installed plugin has zero package dependencies; Node
-24 or newer enables the enhanced deterministic collector.
+20 or newer enables the enhanced deterministic collector.
 
 ### Codex
 
@@ -180,7 +196,7 @@ policy. See [SECURITY.md](SECURITY.md).
 
 ## Development
 
-Requires Node.js 24:
+Requires Node.js 20 or newer:
 
 ```sh
 npm ci

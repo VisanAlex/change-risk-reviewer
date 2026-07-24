@@ -17,7 +17,9 @@ checklist does not authorize a registry, marketplace, GitHub release, or push.
 
 ## Clean checkout
 
-Record operating system, Git, Node, npm, Codex, and Claude Code versions.
+Record operating system, Git, Node, npm, Codex, and Claude Code versions. Run
+the complete check once on the minimum supported Node 20 release line and once
+on the current development release.
 
 ```sh
 npm ci --ignore-scripts

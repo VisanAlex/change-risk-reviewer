@@ -2,7 +2,8 @@
 
 Thank you for helping make code-change review more trustworthy.
 
-Use Node.js 24 and install the locked development dependencies with `npm ci`.
+Use Node.js 20 or newer and install the locked development dependencies with
+`npm ci`.
 Before proposing a change, run:
 
 ```sh
