@@ -9,9 +9,16 @@ export default tseslint.config(
       "skills/review/scripts/analyze.mjs",
     ],
   },
-  eslint.configs.recommended,
-  ...tseslint.configs.recommendedTypeChecked,
   {
+    ...eslint.configs.recommended,
+    files: ["**/*.mjs"],
+  },
+  ...tseslint.configs.recommendedTypeChecked.map((config) => ({
+    ...config,
+    files: ["**/*.ts"],
+  })),
+  {
+    files: ["**/*.ts"],
     languageOptions: {
       parserOptions: {
         projectService: true,

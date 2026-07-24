@@ -4,8 +4,21 @@ import { describe, expect, it } from "vitest";
 
 const root = resolve(import.meta.dirname, "../..");
 
-async function readJson(path: string): Promise<any> {
-  return JSON.parse(await readFile(resolve(root, path), "utf8"));
+interface Marketplace {
+  plugins: Array<{
+    source: string | {
+      source: string;
+      path: string;
+    };
+    policy?: {
+      installation: string;
+      authentication: string;
+    };
+  }>;
+}
+
+async function readJson(path: string): Promise<Marketplace> {
+  return JSON.parse(await readFile(resolve(root, path), "utf8")) as Marketplace;
 }
 
 describe("marketplaces", () => {
@@ -16,12 +29,12 @@ describe("marketplaces", () => {
     ]);
 
     expect(codex.plugins).toHaveLength(1);
-    expect(codex.plugins[0].source).toEqual({ source: "local", path: "./" });
-    expect(codex.plugins[0].policy).toEqual({
+    expect(codex.plugins[0]?.source).toEqual({ source: "local", path: "./" });
+    expect(codex.plugins[0]?.policy).toEqual({
       installation: "AVAILABLE",
       authentication: "ON_INSTALL",
     });
     expect(claude.plugins).toHaveLength(1);
-    expect(claude.plugins[0].source).toBe("./");
+    expect(claude.plugins[0]?.source).toBe("./");
   });
 });

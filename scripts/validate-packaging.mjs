@@ -1,5 +1,6 @@
 import { access, readFile } from "node:fs/promises";
 import { dirname, resolve } from "node:path";
+import process from "node:process";
 import { fileURLToPath } from "node:url";
 
 const repositoryRoot = resolve(dirname(fileURLToPath(import.meta.url)), "..");
