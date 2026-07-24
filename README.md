@@ -108,7 +108,7 @@ shown, or select **Review Code Changes** from the skill picker.
 After this repository is published, use its GitHub marketplace source:
 
 ```sh
-codex plugin marketplace add change-risk-reviewer/change-risk-reviewer
+codex plugin marketplace add VisanAlex/change-risk-reviewer
 ```
 
 ### Claude Code
@@ -127,7 +127,7 @@ Invoke:
 ```
 
 After publication, replace the local path with
-`change-risk-reviewer/change-risk-reviewer`.
+`VisanAlex/change-risk-reviewer`.
 
 ## Use
 
@@ -227,5 +227,7 @@ Deferred:
 - framework-specific semantic analyzers;
 - a supported public standalone CLI;
 - organizational policy packs and learned incident history.
+
+Created and maintained by [Alex Visan](https://github.com/VisanAlex).
 
 MIT licensed. Contributions and sanitized escaped-regression cases are welcome.

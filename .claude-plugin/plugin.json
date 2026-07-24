@@ -3,10 +3,10 @@
   "version": "0.1.0",
   "description": "Review working or committed Git changes for hidden impact.",
   "author": {
-    "name": "Change Risk Reviewer contributors"
+    "name": "Alex Visan"
   },
-  "homepage": "https://github.com/change-risk-reviewer/change-risk-reviewer",
-  "repository": "https://github.com/change-risk-reviewer/change-risk-reviewer",
+  "homepage": "https://github.com/VisanAlex/change-risk-reviewer",
+  "repository": "https://github.com/VisanAlex/change-risk-reviewer",
   "license": "MIT",
   "keywords": ["code-review", "risk", "ai", "git"],
   "skills": "./skills/"

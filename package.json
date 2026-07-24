@@ -5,10 +5,10 @@
   "private": true,
   "type": "module",
   "license": "MIT",
-  "author": "Change Risk Reviewer contributors",
+  "author": "Alex Visan",
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/change-risk-reviewer/change-risk-reviewer.git"
+    "url": "git+https://github.com/VisanAlex/change-risk-reviewer.git"
   },
   "engines": {
     "node": ">=20"

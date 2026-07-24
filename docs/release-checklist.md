@@ -5,9 +5,9 @@ checklist does not authorize a registry, marketplace, GitHub release, or push.
 
 ## Metadata
 
-- [ ] Choose the final GitHub owner and update every
-  `https://github.com/change-risk-reviewer/change-risk-reviewer` value if it
-  differs.
+- [x] Set the intended GitHub owner and repository URL to
+  `https://github.com/VisanAlex/change-risk-reviewer`.
+- [ ] Confirm the public repository resolves at that URL after creation.
 - [ ] Keep `package.json`, both plugin manifests, both marketplaces, and release
   tag on the same version.
 - [ ] Confirm MIT license, publisher name, repository URL, and alpha/stable
