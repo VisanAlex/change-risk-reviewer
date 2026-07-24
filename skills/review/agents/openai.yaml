@@ -1,7 +1,7 @@
 interface:
-  display_name: "Review Change Risk"
-  short_description: "Find hidden impact in large code changes"
-  default_prompt: "Use $review to rank this change's hidden-impact risks and tell me what to inspect first."
+  display_name: "Review Code Changes"
+  short_description: "Inspect risky changes before merge"
+  default_prompt: "Use $review to inspect my current Git changes for hidden impact. If the working tree is clean, explain that committed branch work needs an explicit base-to-HEAD range."
   brand_color: "#C2410C"
 policy:
   allow_implicit_invocation: true

@@ -1,7 +1,7 @@
 {
   "name": "change-risk-reviewer",
   "version": "0.1.0",
-  "description": "Find the few changed locations most deserving human review.",
+  "description": "Review working or committed Git changes for hidden impact.",
   "author": {
     "name": "Change Risk Reviewer contributors"
   },

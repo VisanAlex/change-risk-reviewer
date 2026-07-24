@@ -1,6 +1,6 @@
 ---
 name: review
-description: Review a working Git change or revision range for hidden impact and prioritize the few changed locations a human should inspect first. Use before accepting, merging, or shipping a large, AI-assisted, unfamiliar, or structurally sensitive change. This is evidence-first review compression, not a style review or merge verdict.
+description: Review Git changes—not an entire repository—for hidden impact and prioritize the few changed locations a human should inspect first. Use after edits or commits, before a PR, merge, or deploy, or when asked to review my changes, check this branch, compare a base to HEAD, find hidden impact, or say what deserves attention. Handles the current working diff and explicit committed revision ranges.
 ---
 
 # Change Risk Review
@@ -26,26 +26,37 @@ whether the change should merge.
 ## Workflow
 
 1. Resolve the scope.
-   - Default to the current working change against `HEAD`.
+   - Default to the current working change against `HEAD`. This includes
+     uncommitted staged, unstaged, and untracked changes; it does not include
+     commits already contained in `HEAD`.
    - When the user gives a base and head revision, use exactly that range.
    - If the range is invalid, stop. Never silently fall back to the working tree.
+   - If the working scope is empty, say that no working changes were found. If
+     the user meant already committed branch work, explain that it needs a base
+     such as `origin/main`, `staging`, or a commit SHA, then stop rather than
+     guessing the branch relationship.
 2. Locate this skill directory from the loaded `SKILL.md` path.
 3. Probe `node --version`. When Node 24 or newer is available, run:
 
    ```text
-   node <skill-directory>/scripts/analyze.mjs --repo <repository>
-   node <skill-directory>/scripts/analyze.mjs --repo <repository> --base <base> --head <head>
+   node <skill-directory>/scripts/analyze.mjs --compact --repo <repository>
+   node <skill-directory>/scripts/analyze.mjs --compact --repo <repository> --base <base> --head <head>
    ```
 
    Pass each value as a distinct process argument. Parse stdout as
-   `EvidenceEnvelopeV1`. Do not promote unvalidated or partial tool output.
+   `ReviewInputV1`. The compact projection deliberately keeps a bounded,
+   reason-diverse selection from the ranked elevated/notable candidates and
+   their strongest facts. Do not rerun with `--full` to manufacture more
+   findings. Do not promote unvalidated or partial tool output.
 4. If the helper or compatible Node runtime is unavailable, read and follow
    [fallback-collection.md](references/fallback-collection.md). State every
    lost capability.
 5. Read [evidence-hierarchy.md](references/evidence-hierarchy.md). Start from
    `elevated`, then `notable` candidates. Investigate no more than five
    locations, their strongest cited consumers, and the smallest useful source
-   context. Do not rescan the entire diff as generic review.
+   context. Prefer reporting one to three strong findings. Use four or five
+   only when each has an independent, specific failure hypothesis. Do not
+   rescan the entire diff as generic review.
 6. You may reorder candidates only when new repository evidence supports the
    change. State that evidence in the report.
 7. Read [report-contract.md](references/report-contract.md) and produce the
@@ -59,7 +70,16 @@ whether the change should merge.
 - Put `high`, `medium`, or `low` confidence only on inferences.
 - Every prioritized location needs an exact path and current line range, or an
   old-side deletion range.
-- Every impact hypothesis needs cited facts and a concrete verification action.
+- Every evidence line must show the supporting fact IDs. Every impact
+  hypothesis must cite fact IDs shown on that finding and include a concrete
+  verification action.
+- A changed file, changed UI/CSS, pagination, file count, or lack of changed
+  tests is not enough by itself to create a finding. Do not emit generic
+  breakpoint, browser, filter/sort, or manual-QA advice without evidence for a
+  specific cross-boundary failure.
+- `NO_TEST_CHANGE` is supporting verification context, never the primary reason
+  for a finding. Do not promote context-only candidates unless minimal source
+  investigation produces new, specific repository evidence.
 - Tests changing is a fact. Test adequacy remains unknown in this version.
 - If no changed hunks exist, say so briefly and return no findings.
 - If nothing is meaningfully elevated, keep the report short. Do not fill a

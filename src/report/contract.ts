@@ -79,6 +79,10 @@ export function validateReviewReport(report: ReviewReport): ReviewReport {
       throw new Error("Every finding needs a concrete verification action");
     }
     assertInference(finding.potentialImpact);
+    const shownFactIds = new Set(finding.evidence.map(({ factId }) => factId));
+    if (finding.potentialImpact.evidenceFactIds.some((factId) => !shownFactIds.has(factId))) {
+      throw new Error("Every impact inference must cite evidence shown on the finding");
+    }
   }
   for (const inference of report.inferencesAndUnknowns.inferences) {
     assertInference(inference);

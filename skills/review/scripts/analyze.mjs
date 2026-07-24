@@ -1299,19 +1299,286 @@ async function analyzeChange(options) {
   return assertEvidenceEnvelopeV1(envelope);
 }
 
+// src/contracts/review-input.ts
+var MAX_REVIEW_CANDIDATES = 5;
+var MAX_FACTS_PER_CANDIDATE = 10;
+var MAX_CHANGED_FILES = 100;
+var MAX_TEST_PATHS_PER_FIELD = 50;
+var MAX_WARNINGS = 20;
+var MAX_SAMPLE_PATHS_PER_FACT = 8;
+var FACT_PRECEDENCE = {
+  FILE_ROLE: 10,
+  TEXTUAL_REFERENCE_BREADTH: 20,
+  IMPORT_REFERENCE_BREADTH: 30,
+  CONTROL_FLOW_TOKEN: 40,
+  PUBLIC_SURFACE_TOKEN: 50,
+  HISTORY_CHANGE_FREQUENCY: 60,
+  HISTORY_COCHANGE_BREADTH: 70,
+  BINARY_CHANGE: 80,
+  GENERATED_FILE: 90
+};
+function isObject2(value) {
+  return typeof value === "object" && value !== null && !Array.isArray(value);
+}
+function compactFactValue(value) {
+  if (!isObject2(value) || !Array.isArray(value.samplePaths)) {
+    return { value, samplePathsTruncated: false };
+  }
+  return {
+    value: {
+      ...value,
+      samplePaths: value.samplePaths.slice(0, MAX_SAMPLE_PATHS_PER_FACT)
+    },
+    samplePathsTruncated: value.samplePaths.length > MAX_SAMPLE_PATHS_PER_FACT
+  };
+}
+function fileRolesByHunk(envelope) {
+  const roles2 = /* @__PURE__ */ new Map();
+  for (const fact of envelope.facts) {
+    if (fact.reasonCode !== "FILE_ROLE" || !isObject2(fact.value)) {
+      continue;
+    }
+    const value = fact.value.roles;
+    if (Array.isArray(value)) {
+      roles2.set(
+        fact.hunkId,
+        value.filter((role) => typeof role === "string").sort()
+      );
+    }
+  }
+  return roles2;
+}
+function selectedCandidates(envelope) {
+  const eligible = envelope.candidates.filter(({ band }) => band !== "context");
+  const roles2 = fileRolesByHunk(envelope);
+  const selectedIds = /* @__PURE__ */ new Set();
+  const seenProfiles = /* @__PURE__ */ new Set();
+  for (const candidate of eligible) {
+    const profile = stableSerialize({
+      band: candidate.band,
+      reasons: [...candidate.reasons].sort(),
+      roles: roles2.get(candidate.hunkId) ?? []
+    });
+    if (!seenProfiles.has(profile)) {
+      seenProfiles.add(profile);
+      selectedIds.add(candidate.hunkId);
+      if (selectedIds.size === MAX_REVIEW_CANDIDATES) {
+        break;
+      }
+    }
+  }
+  for (const candidate of eligible) {
+    if (selectedIds.size === MAX_REVIEW_CANDIDATES) {
+      break;
+    }
+    selectedIds.add(candidate.hunkId);
+  }
+  return eligible.filter(({ hunkId }) => selectedIds.has(hunkId));
+}
+function selectedFacts(envelope, candidates) {
+  const factsByHunk = /* @__PURE__ */ new Map();
+  for (const fact of envelope.facts) {
+    const current = factsByHunk.get(fact.hunkId) ?? [];
+    current.push(fact);
+    factsByHunk.set(fact.hunkId, current);
+  }
+  return candidates.flatMap(
+    ({ hunkId }) => (factsByHunk.get(hunkId) ?? []).sort(
+      (left, right) => (FACT_PRECEDENCE[left.reasonCode] ?? 100) - (FACT_PRECEDENCE[right.reasonCode] ?? 100) || left.id.localeCompare(right.id)
+    ).slice(0, MAX_FACTS_PER_CANDIDATE)
+  );
+}
+function compactFacts(facts) {
+  const sourceIds = /* @__PURE__ */ new Map();
+  const sources = [];
+  const compacted = facts.map((fact) => {
+    const key = stableSerialize(fact.source);
+    let sourceId = sourceIds.get(key);
+    if (sourceId === void 0) {
+      sourceId = `source-${sources.length + 1}`;
+      sourceIds.set(key, sourceId);
+      sources.push({ id: sourceId, ...fact.source });
+    }
+    const compactedValue = compactFactValue(fact.value);
+    const base = {
+      id: fact.id,
+      hunkId: fact.hunkId,
+      reasonCode: fact.reasonCode,
+      collector: fact.collector,
+      sourceId,
+      strength: fact.strength,
+      value: compactedValue.value
+    };
+    const limits = compactedValue.samplePathsTruncated ? {
+      ...fact.limits ?? {},
+      reviewInputMaxSamplePaths: MAX_SAMPLE_PATHS_PER_FACT,
+      reviewInputSamplePathsTruncated: true
+    } : fact.limits;
+    return limits === void 0 ? base : { ...base, limits };
+  });
+  return { facts: compacted, sources };
+}
+function compactChangedFiles(files, candidates) {
+  const byPath = new Map(files.map((file) => [file.path, file]));
+  const prioritizedPaths = [
+    .../* @__PURE__ */ new Set([
+      ...candidates.map(({ location }) => location.path),
+      ...files.map(({ path }) => path).sort()
+    ])
+  ];
+  return prioritizedPaths.flatMap((path) => {
+    const file = byPath.get(path);
+    return file === void 0 ? [] : [file];
+  }).slice(0, MAX_CHANGED_FILES);
+}
+function boundedTests(tests) {
+  return {
+    changed: tests.changed.slice(0, MAX_TEST_PATHS_PER_FIELD),
+    candidates: tests.candidates.slice(0, MAX_TEST_PATHS_PER_FIELD),
+    unverifiedAreas: tests.unverifiedAreas.slice(0, MAX_TEST_PATHS_PER_FIELD)
+  };
+}
+function createReviewInput(envelope) {
+  const candidates = selectedCandidates(envelope);
+  const eligibleCandidates = envelope.candidates.filter(({ band }) => band !== "context").length;
+  const evidenceFacts = selectedFacts(envelope, candidates);
+  const compacted = compactFacts(evidenceFacts);
+  const changedFiles = compactChangedFiles(envelope.changedFiles, candidates);
+  const tests = boundedTests(envelope.tests);
+  const warnings = envelope.warnings.slice(0, MAX_WARNINGS);
+  return assertReviewInputV1({
+    kind: "change-risk-review-input",
+    schemaVersion: "1",
+    scope: envelope.scope,
+    repository: envelope.repository,
+    capabilities: envelope.capabilities,
+    changeSummary: {
+      totalFiles: envelope.changedFiles.length,
+      totalHunks: envelope.candidates.length,
+      elevatedCandidates: envelope.candidates.filter(({ band }) => band === "elevated").length,
+      notableCandidates: envelope.candidates.filter(({ band }) => band === "notable").length,
+      contextCandidates: envelope.candidates.filter(({ band }) => band === "context").length
+    },
+    changedFiles,
+    candidates,
+    facts: compacted.facts,
+    sources: compacted.sources,
+    tests,
+    warnings,
+    selection: {
+      strategy: "ranked-reason-diversity",
+      maxReviewCandidates: MAX_REVIEW_CANDIDATES,
+      maxFactsPerCandidate: MAX_FACTS_PER_CANDIDATE,
+      maxChangedFiles: MAX_CHANGED_FILES,
+      totalCandidates: envelope.candidates.length,
+      eligibleCandidates,
+      selectedCandidates: candidates.length,
+      omittedCandidates: envelope.candidates.length - candidates.length,
+      omittedEligibleCandidates: eligibleCandidates - candidates.length,
+      excludedContextCandidates: envelope.candidates.length - eligibleCandidates,
+      totalFacts: envelope.facts.length,
+      selectedFacts: compacted.facts.length,
+      omittedFacts: envelope.facts.length - compacted.facts.length,
+      totalChangedFiles: envelope.changedFiles.length,
+      includedChangedFiles: changedFiles.length,
+      omittedChangedFiles: envelope.changedFiles.length - changedFiles.length,
+      totalWarnings: envelope.warnings.length,
+      includedWarnings: warnings.length,
+      omittedWarnings: envelope.warnings.length - warnings.length,
+      totalChangedTests: envelope.tests.changed.length,
+      includedChangedTests: tests.changed.length,
+      omittedChangedTests: envelope.tests.changed.length - tests.changed.length,
+      totalCandidateTests: envelope.tests.candidates.length,
+      includedCandidateTests: tests.candidates.length,
+      omittedCandidateTests: envelope.tests.candidates.length - tests.candidates.length,
+      totalUnverifiedAreas: envelope.tests.unverifiedAreas.length,
+      includedUnverifiedAreas: tests.unverifiedAreas.length,
+      omittedUnverifiedAreas: envelope.tests.unverifiedAreas.length - tests.unverifiedAreas.length
+    }
+  });
+}
+function assertReviewInputV1(value) {
+  if (!isObject2(value) || value.kind !== "change-risk-review-input" || value.schemaVersion !== "1") {
+    throw new Error("Review input must use kind change-risk-review-input and schemaVersion 1");
+  }
+  for (const field of [
+    "capabilities",
+    "changedFiles",
+    "candidates",
+    "facts",
+    "sources",
+    "warnings"
+  ]) {
+    if (!Array.isArray(value[field])) {
+      throw new Error(`Review input ${field} must be an array`);
+    }
+  }
+  if (!isObject2(value.scope) || !isObject2(value.repository) || !isObject2(value.tests)) {
+    throw new Error("Review input scope, repository, or test metadata is invalid");
+  }
+  if (!isObject2(value.changeSummary) || !isObject2(value.selection)) {
+    throw new Error("Review input summary or selection metadata is missing");
+  }
+  const candidates = value.candidates;
+  const changedFiles = value.changedFiles;
+  const sources = value.sources;
+  const facts = value.facts;
+  if (candidates.length > MAX_REVIEW_CANDIDATES) {
+    throw new Error("Review input exceeds the candidate limit");
+  }
+  if (candidates.some(
+    (candidate) => isObject2(candidate) && candidate.band === "context"
+  )) {
+    throw new Error("Review input cannot contain a context candidate");
+  }
+  if (changedFiles.length > MAX_CHANGED_FILES) {
+    throw new Error("Review input exceeds the changed-file limit");
+  }
+  if (facts.length > MAX_REVIEW_CANDIDATES * MAX_FACTS_PER_CANDIDATE) {
+    throw new Error("Review input exceeds the evidence-fact limit");
+  }
+  const sourceIds = new Set(
+    sources.flatMap((source) => {
+      if (!isObject2(source) || typeof source.id !== "string" || typeof source.tool !== "string" || !Array.isArray(source.args)) {
+        throw new Error("Every review-input source must contain a reproducible command");
+      }
+      return [source.id];
+    })
+  );
+  for (const fact of facts) {
+    if (!isObject2(fact) || typeof fact.sourceId !== "string" || !sourceIds.has(fact.sourceId)) {
+      throw new Error("Every review-input fact must reference a catalogued source");
+    }
+    if (fact.strength !== "verified") {
+      throw new Error("Review-input facts must be marked verified");
+    }
+  }
+  return value;
+}
+
 // src/internal-entry.ts
 function usage() {
-  return "Usage: analyze.mjs [--repo <path>] [--base <revision> --head <revision>] [--pretty]";
+  return "Usage: analyze.mjs [--repo <path>] [--base <revision> --head <revision>] [--compact | --full] [--pretty]";
 }
 function parseArguments(args) {
   let repository = process2.cwd();
   let base;
   let head;
   let pretty = false;
+  let output = "compact";
+  let outputWasSelected = false;
   for (let index = 0; index < args.length; index += 1) {
     const argument = args[index];
     if (argument === "--pretty") {
       pretty = true;
+      continue;
+    }
+    if (argument === "--compact" || argument === "--full") {
+      if (outputWasSelected) {
+        throw new Error("--compact and --full cannot be combined or repeated");
+      }
+      output = argument === "--compact" ? "compact" : "full";
+      outputWasSelected = true;
       continue;
     }
     if (argument === "--repo" || argument === "--base" || argument === "--head") {
@@ -1342,7 +1609,8 @@ function parseArguments(args) {
   return {
     repository: resolve3(repository),
     scope: base !== void 0 && head !== void 0 ? { kind: "range", base, head } : { kind: "working" },
-    pretty
+    pretty,
+    output
   };
 }
 async function main() {
@@ -1351,7 +1619,8 @@ async function main() {
     repository: parsed.repository,
     scope: parsed.scope
   });
-  const serialized = parsed.pretty ? JSON.stringify(envelope, null, 2) : stableSerialize(envelope);
+  const output = parsed.output === "compact" ? createReviewInput(envelope) : envelope;
+  const serialized = parsed.pretty ? JSON.stringify(output, null, 2) : stableSerialize(output);
   process2.stdout.write(`${serialized}
 `);
 }

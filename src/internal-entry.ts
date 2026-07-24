@@ -2,15 +2,17 @@ import process from "node:process";
 import { resolve } from "node:path";
 import { analyzeChange, type AnalyzeChangeOptions } from "./analyze.js";
 import { stableSerialize } from "./contracts/evidence.js";
+import { createReviewInput } from "./contracts/review-input.js";
 
 interface ParsedArguments {
   repository: string;
   scope: AnalyzeChangeOptions["scope"];
   pretty: boolean;
+  output: "compact" | "full";
 }
 
 function usage(): string {
-  return "Usage: analyze.mjs [--repo <path>] [--base <revision> --head <revision>] [--pretty]";
+  return "Usage: analyze.mjs [--repo <path>] [--base <revision> --head <revision>] [--compact | --full] [--pretty]";
 }
 
 function parseArguments(args: readonly string[]): ParsedArguments {
@@ -18,11 +20,21 @@ function parseArguments(args: readonly string[]): ParsedArguments {
   let base: string | undefined;
   let head: string | undefined;
   let pretty = false;
+  let output: ParsedArguments["output"] = "compact";
+  let outputWasSelected = false;
 
   for (let index = 0; index < args.length; index += 1) {
     const argument = args[index];
     if (argument === "--pretty") {
       pretty = true;
+      continue;
+    }
+    if (argument === "--compact" || argument === "--full") {
+      if (outputWasSelected) {
+        throw new Error("--compact and --full cannot be combined or repeated");
+      }
+      output = argument === "--compact" ? "compact" : "full";
+      outputWasSelected = true;
       continue;
     }
     if (argument === "--repo" || argument === "--base" || argument === "--head") {
@@ -57,6 +69,7 @@ function parseArguments(args: readonly string[]): ParsedArguments {
         ? { kind: "range", base, head }
         : { kind: "working" },
     pretty,
+    output,
   };
 }
 
@@ -66,9 +79,10 @@ async function main(): Promise<void> {
     repository: parsed.repository,
     scope: parsed.scope,
   });
+  const output = parsed.output === "compact" ? createReviewInput(envelope) : envelope;
   const serialized = parsed.pretty
-    ? JSON.stringify(envelope, null, 2)
-    : stableSerialize(envelope);
+    ? JSON.stringify(output, null, 2)
+    : stableSerialize(output);
   process.stdout.write(`${serialized}\n`);
 }
 

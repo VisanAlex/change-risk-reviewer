@@ -1,7 +1,7 @@
 {
   "name": "change-risk-reviewer",
   "version": "0.1.0",
-  "description": "Find the few changed locations most deserving human review.",
+  "description": "Review working or committed Git changes for hidden impact.",
   "author": {
     "name": "Change Risk Reviewer contributors"
   },
@@ -12,14 +12,15 @@
   "skills": "./skills/",
   "interface": {
     "displayName": "Change Risk Reviewer",
-    "shortDescription": "Find hidden impact in large code changes",
-    "longDescription": "Compress a large diff into evidence-backed locations a human should inspect first.",
+    "shortDescription": "Review code changes before they merge",
+    "longDescription": "Compress a working diff or committed branch range into evidence-backed locations a human should inspect first.",
     "developerName": "Change Risk Reviewer contributors",
     "category": "Productivity",
     "capabilities": ["Read"],
     "defaultPrompt": [
-      "Review my current change for hidden impact.",
-      "Find the changed locations I should inspect first."
+      "I finished a code change. Review the working diff for hidden impact.",
+      "Review committed changes from origin/main to HEAD.",
+      "Before I open this PR, tell me which changed lines deserve attention first."
     ],
     "brandColor": "#C2410C"
   }

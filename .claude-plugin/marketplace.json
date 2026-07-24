@@ -11,7 +11,7 @@
     {
       "name": "change-risk-reviewer",
       "source": "./",
-      "description": "Find the few changed locations most deserving human review",
+      "description": "Review working or committed Git changes for hidden impact",
       "category": "Development",
       "tags": ["code-review", "risk", "git"]
     }

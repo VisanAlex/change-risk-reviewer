@@ -27,17 +27,45 @@ async function runRuntime(args: string[]): Promise<{ code: number | null; stderr
 }
 
 describe("internal bundled runtime", () => {
-  it("emits a V1 evidence envelope for a working change", async () => {
+  it("emits a compact V1 review input for a working change by default", async () => {
     const repository = await createRepository({ "src/value.ts": "export const value = 1;\n" });
     await writeRepositoryFile(repository, "src/value.ts", "export const value = 2;\n");
 
     const result = await runRuntime(["--repo", repository]);
-    const envelope = JSON.parse(result.stdout) as { schemaVersion: string; candidates: unknown[] };
+    const explicitResult = await runRuntime(["--compact", "--repo", repository]);
+    const input = JSON.parse(result.stdout) as {
+      kind: string;
+      schemaVersion: string;
+      candidates: unknown[];
+      selection: { selectedCandidates: number };
+    };
 
     expect(result.code).toBe(0);
     expect(result.stderr).toBe("");
+    expect(explicitResult).toEqual(result);
+    expect(input.kind).toBe("change-risk-review-input");
+    expect(input.schemaVersion).toBe("1");
+    expect(input.candidates).toHaveLength(input.selection.selectedCandidates);
+  });
+
+  it("can emit the full evidence envelope for debugging", async () => {
+    const repository = await createRepository({ "src/value.ts": "export const value = 1;\n" });
+    await writeRepositoryFile(repository, "src/value.ts", "export const value = 2;\n");
+
+    const result = await runRuntime(["--repo", repository, "--full"]);
+    const envelope = JSON.parse(result.stdout) as {
+      kind?: string;
+      schemaVersion: string;
+      candidates: unknown[];
+      facts: Array<{ source?: unknown }>;
+    };
+
+    expect(result.code).toBe(0);
+    expect(result.stderr).toBe("");
+    expect(envelope.kind).toBeUndefined();
     expect(envelope.schemaVersion).toBe("1");
     expect(envelope.candidates).toHaveLength(1);
+    expect(envelope.facts.every(({ source }) => source !== undefined)).toBe(true);
   });
 
   it("returns a structured error for an invalid named range", async () => {

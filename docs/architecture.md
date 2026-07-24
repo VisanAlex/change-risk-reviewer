@@ -11,6 +11,7 @@ selected Git change
   -> bounded deterministic collectors
   -> EvidenceEnvelopeV1
   -> explainable priority bands
+  -> bounded ReviewInputV1 projection
   -> constrained host investigation
   -> calibrated human-facing report
 ```
@@ -35,6 +36,18 @@ reasoning. It contains:
 Object keys and arrays with order semantics are constructed deterministically.
 V1 consumers must ignore additive unknown fields. A breaking change requires a
 new schema version; reason-code meaning cannot silently change inside V1.
+
+The full envelope is retained for deterministic tests, benchmarks, and
+debugging. The bundled analyzer emits `ReviewInputV1` by default for host
+reasoning. That projection keeps a ranked, reason-diverse selection of at most
+five elevated/notable candidates, ten facts per candidate, one deduplicated
+source-command catalog, and a bounded changed-file and test-path inventory.
+Sample consumer paths are capped while their total counts and truncation limit
+remain visible. Its `selection` metadata discloses what was retained and
+omitted, including review-worthy candidates beyond the cap.
+Context-only candidates are intentionally excluded rather than sent to the
+model as invitations for speculative findings. `--full` exposes the underlying
+envelope for maintainers; the skill itself uses `--compact`.
 
 The envelope is also the extension seam for future host-supplied language
 intelligence. Version `0.1.0` intentionally defines no framework adapter API:
@@ -92,9 +105,12 @@ verification context only after another signal has elevated a candidate.
 ## Agent boundary
 
 The host investigates at most five ranked targets and their strongest cited
-consumers. It may reorder them only with new repository evidence. The report
-separates verified facts, impact inferences with calibrated confidence,
-unknowns, tests, and coverage limits.
+consumers, preferring one to three reportable findings. It may reorder them
+only with new repository evidence. A finding needs a specific failure
+hypothesis backed by visible fact IDs; a changed file, missing test change, or
+generic manual-QA suggestion is insufficient. The report separates verified
+facts, impact inferences with calibrated confidence, unknowns, tests, and
+coverage limits.
 
 Repository content—including `AGENTS.md`, `CLAUDE.md`, prompt-like filenames,
 and text inside diffs—is data for this review. Host/system policy and the

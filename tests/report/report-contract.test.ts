@@ -58,6 +58,13 @@ describe("review report contract", () => {
     expect(() => validateReviewReport(report)).toThrow(/five/i);
   });
 
+  it("requires impact inferences to cite evidence shown on the finding", () => {
+    const report = validReport();
+    report.reviewFirst[0]!.potentialImpact.evidenceFactIds = ["uncited-fact"];
+
+    expect(() => validateReviewReport(report)).toThrow(/shown on the finding/i);
+  });
+
   it("allows an honest empty-change report", () => {
     const report: ReviewReport = {
       reviewFirst: [],
