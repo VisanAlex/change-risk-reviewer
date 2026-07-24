@@ -100,7 +100,9 @@ Use the review skill on the change from origin/main to HEAD.
 
 The skill defaults to the final working-tree state against `HEAD`, combining
 staged, unstaged, renamed, deleted, and untracked files without duplicating the
-same hunk. Named ranges resolve both endpoints and use their merge base.
+same hunk. Named ranges resolve both endpoints, use their merge base, and
+collect references, tests, and history from the selected head even when another
+branch is checked out.
 
 The report contains:
 

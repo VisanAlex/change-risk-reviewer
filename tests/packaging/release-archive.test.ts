@@ -55,6 +55,7 @@ describe("release archive", () => {
     expect(files).toContain(".agents/plugins/marketplace.json");
     expect(files).toContain("skills/review/SKILL.md");
     expect(files).toContain("skills/review/scripts/analyze.mjs");
+    expect(files).toContain("scripts/validate-packaging.mjs");
     expect(files).toContain("LICENSE");
     expect(files).toContain("README.md");
     expect(files.some((path) => path.startsWith("src/"))).toBe(false);

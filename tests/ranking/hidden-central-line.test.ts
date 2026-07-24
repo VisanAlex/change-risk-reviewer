@@ -64,4 +64,20 @@ describe("candidate ranking", () => {
     expect(ranked[0]?.band).toBe("context");
     expect(ranked[0]?.reasons).not.toContain("NO_TEST_CHANGE");
   });
+
+  it("does not let documentation references outrank runtime code", () => {
+    const documentation = hunk("docs", "docs/architecture.md", 2);
+    const runtime = hunk("runtime", "src/service.ts", 2);
+    const facts: EvidenceFact[] = [
+      fact("docs", "FILE_ROLE", { roles: ["documentation"] }),
+      fact("docs", "TEXTUAL_REFERENCE_BREADTH", { count: 42, samplePaths: [] }),
+      fact("docs", "PUBLIC_SURFACE_TOKEN", { tokens: ["interface"] }),
+      fact("runtime", "PUBLIC_SURFACE_TOKEN", { tokens: ["export"] }),
+    ];
+
+    const ranked = rankCandidates([documentation, runtime], facts, false);
+
+    expect(ranked[0]?.hunkId).toBe("runtime");
+    expect(ranked.find((candidate) => candidate.hunkId === "docs")?.band).toBe("context");
+  });
 });

@@ -2,31 +2,103 @@ import type { CapabilityRecord, ChangedHunk, EvidenceFact } from "../contracts/e
 import { runGit } from "../git/process.js";
 
 const HISTORY_COMMITS = 100;
+const MAX_HISTORY_PATHS = 100;
+const MAX_GENERATED_HISTORY_PATHS = 5;
+
+interface CommitPaths {
+  commit: string;
+  paths: Set<string>;
+}
+
+function selectedPaths(hunks: readonly ChangedHunk[]): {
+  selected: string[];
+  skipped: number;
+} {
+  const generatedByPath = new Map<string, boolean>();
+  for (const hunk of hunks) {
+    generatedByPath.set(hunk.path, (generatedByPath.get(hunk.path) ?? true) && hunk.generated);
+  }
+  const paths = [...generatedByPath].sort(([left], [right]) => left.localeCompare(right));
+  const ordinary = paths
+    .filter(([, generated]) => !generated)
+    .map(([path]) => path)
+    .slice(0, MAX_HISTORY_PATHS);
+  const generated = paths
+    .filter(([, isGenerated]) => isGenerated)
+    .map(([path]) => path)
+    .slice(0, MAX_GENERATED_HISTORY_PATHS);
+  const selected = [...ordinary, ...generated];
+  return { selected, skipped: paths.length - selected.length };
+}
+
+function parseCommitPaths(output: string): CommitPaths[] {
+  const commits: CommitPaths[] = [];
+  let current: CommitPaths | undefined;
+  for (const token of output.split("\0").filter(Boolean)) {
+    if (token.startsWith("__CRR_COMMIT__")) {
+      current = { commit: token.slice("__CRR_COMMIT__".length), paths: new Set() };
+      commits.push(current);
+    } else if (current !== undefined) {
+      current.paths.add(token.replace(/^\r?\n/u, "").replaceAll("\\", "/"));
+    }
+  }
+  return commits;
+}
 
 export async function collectHistoryFacts(
   repository: string,
   hunks: readonly ChangedHunk[],
+  revision: string,
 ): Promise<{ facts: EvidenceFact[]; capability: CapabilityRecord; warnings: string[] }> {
-  const facts: EvidenceFact[] = [];
+  const { selected, skipped } = selectedPaths(hunks);
+  if (selected.length === 0) {
+    return {
+      facts: [],
+      capability: {
+        collector: "git-history",
+        status: "available",
+        details: "No changed paths required history collection.",
+        limits: {
+          maxCommits: HISTORY_COMMITS,
+          maxPaths: MAX_HISTORY_PATHS,
+          maxGeneratedPaths: MAX_GENERATED_HISTORY_PATHS,
+          skippedPaths: 0,
+          revision: "selected-head",
+        },
+      },
+      warnings: [],
+    };
+  }
+
   try {
-    for (const hunk of hunks) {
-      const result = await runGit(
-        repository,
-        ["log", `--max-count=${HISTORY_COMMITS}`, "--format=__CRR_COMMIT__%H", "--name-only", "--", hunk.path],
-        { timeoutMs: 4_000, maxOutputBytes: 512 * 1024 },
-      );
-      const commits = result.stdout.split(/\r?\n/u).filter((line) => line.startsWith("__CRR_COMMIT__"));
+    const args = [
+      "log",
+      `--max-count=${HISTORY_COMMITS}`,
+      "--format=__CRR_COMMIT__%H",
+      "--name-only",
+      "--full-diff",
+      "-z",
+      revision,
+      "--",
+      ...selected,
+    ];
+    const result = await runGit(repository, args, {
+      timeoutMs: 6_000,
+      maxOutputBytes: 2 * 1024 * 1024,
+    });
+    const commits = parseCommitPaths(result.stdout);
+    const facts: EvidenceFact[] = [];
+    const source = {
+      tool: "git",
+      args,
+      cwd: repository.replaceAll("\\", "/"),
+    };
+
+    for (const hunk of hunks.filter((candidate) => selected.includes(candidate.path))) {
+      const matchingCommits = commits.filter((commit) => commit.paths.has(hunk.path));
       const cochanged = new Set(
-        result.stdout
-          .split(/\r?\n/u)
-          .filter((line) => line.length > 0 && !line.startsWith("__CRR_COMMIT__") && line !== hunk.path)
-          .map((path) => path.replaceAll("\\", "/")),
+        matchingCommits.flatMap((commit) => [...commit.paths].filter((path) => path !== hunk.path)),
       );
-      const source = {
-        tool: "git",
-        args: ["log", `--max-count=${HISTORY_COMMITS}`, "--format=<commit>", "--name-only", "--", hunk.path],
-        cwd: repository.replaceAll("\\", "/"),
-      };
       facts.push({
         id: `${hunk.id}:history-frequency`,
         hunkId: hunk.id,
@@ -34,7 +106,7 @@ export async function collectHistoryFacts(
         collector: "git-history",
         source,
         strength: "verified",
-        value: { count: commits.length, window: HISTORY_COMMITS },
+        value: { count: matchingCommits.length, window: HISTORY_COMMITS },
       });
       facts.push({
         id: `${hunk.id}:history-cochange`,
@@ -46,27 +118,41 @@ export async function collectHistoryFacts(
         value: { count: cochanged.size, samplePaths: [...cochanged].sort().slice(0, 20) },
       });
     }
-  } catch (error) {
+
+    const partial = skipped > 0 || result.truncated;
     return {
       facts,
       capability: {
         collector: "git-history",
-        status: facts.length > 0 ? "partial" : "unavailable",
-        details: `History collection stopped: ${error instanceof Error ? error.message : String(error)}`,
-        limits: { maxCommitsPerPath: HISTORY_COMMITS },
+        status: partial ? "partial" : "available",
+        details: "Bounded change frequency and cross-file co-change observations from one shared commit window.",
+        limits: {
+          maxCommits: HISTORY_COMMITS,
+          maxPaths: MAX_HISTORY_PATHS,
+          maxGeneratedPaths: MAX_GENERATED_HISTORY_PATHS,
+          skippedPaths: skipped,
+          revision: "selected-head",
+          truncated: result.truncated,
+        },
       },
-      warnings: ["Git history evidence is incomplete; completed facts were retained."],
+      warnings: partial ? ["Git history evidence is incomplete; completed facts were retained."] : [],
+    };
+  } catch (error) {
+    return {
+      facts: [],
+      capability: {
+        collector: "git-history",
+        status: "unavailable",
+        details: `History collection failed: ${error instanceof Error ? error.message : String(error)}`,
+        limits: {
+          maxCommits: HISTORY_COMMITS,
+          maxPaths: MAX_HISTORY_PATHS,
+          maxGeneratedPaths: MAX_GENERATED_HISTORY_PATHS,
+          skippedPaths: skipped,
+          revision: "selected-head",
+        },
+      },
+      warnings: ["Git history evidence is unavailable."],
     };
   }
-
-  return {
-    facts,
-    capability: {
-      collector: "git-history",
-      status: "available",
-      details: "Bounded per-path change frequency and cross-file co-change observations.",
-      limits: { maxCommitsPerPath: HISTORY_COMMITS },
-    },
-    warnings: [],
-  };
 }

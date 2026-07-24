@@ -1,6 +1,6 @@
 import { mkdir, mkdtemp, readFile, readdir, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
-import { basename, dirname, join, resolve } from "node:path";
+import { basename, dirname, isAbsolute, join, relative, resolve, sep } from "node:path";
 import { fileURLToPath } from "node:url";
 import { analyzeChange } from "../analyze.js";
 import {
@@ -124,9 +124,26 @@ function applyTemplate(template: string, index: number): string {
   return template.replaceAll("{index}", String(index));
 }
 
+export function resolveFixturePath(repository: string, path: string): string {
+  if (path.length === 0 || isAbsolute(path) || /[\0\r\n]/u.test(path)) {
+    throw new Error(`Benchmark fixture path must be a relative single-line path: ${JSON.stringify(path)}`);
+  }
+  const target = resolve(repository, ...path.split("/"));
+  const pathFromRepository = relative(resolve(repository), target);
+  if (
+    pathFromRepository.length === 0 ||
+    pathFromRepository === ".." ||
+    pathFromRepository.startsWith(`..${sep}`) ||
+    isAbsolute(pathFromRepository)
+  ) {
+    throw new Error(`Benchmark fixture path leaves the benchmark repository: ${JSON.stringify(path)}`);
+  }
+  return target;
+}
+
 async function writeFiles(repository: string, files: Record<string, string>): Promise<void> {
   for (const [path, content] of Object.entries(files).sort(([left], [right]) => left.localeCompare(right))) {
-    const target = resolve(repository, ...path.split("/"));
+    const target = resolveFixturePath(repository, path);
     await mkdir(dirname(target), { recursive: true });
     await writeFile(target, content);
   }
@@ -196,6 +213,9 @@ export async function buildBenchmarkFixture(caseId: string): Promise<BenchmarkFi
     await runGit(repository, ["init", "-b", "main"]);
     await runGit(repository, ["config", "user.name", "Benchmark Fixture"]);
     await runGit(repository, ["config", "user.email", "benchmark@example.invalid"]);
+    const hooksDirectory = resolve(repository, ".git", "change-risk-empty-hooks");
+    await mkdir(hooksDirectory, { recursive: true });
+    await runGit(repository, ["config", "core.hooksPath", hooksDirectory]);
     await writeFiles(repository, recipe.baseFiles);
     await writeGenerated(repository, recipe.generatedGroups, "base");
     await runGit(repository, ["add", "."]);

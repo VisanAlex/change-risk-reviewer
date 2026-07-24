@@ -1,5 +1,5 @@
 import { lstat, readFile, realpath } from "node:fs/promises";
-import { isAbsolute, relative, resolve } from "node:path";
+import { isAbsolute, relative, resolve, sep } from "node:path";
 import type { ChangedHunk, RangeScope, ReviewScope, WorkingScope } from "../contracts/evidence.js";
 import { parseUnifiedDiff } from "./diff.js";
 import { ProcessExecutionError, runGit } from "./process.js";
@@ -20,7 +20,12 @@ export interface ResolvedChange {
   dirty: boolean;
   hunks: ChangedHunk[];
   binaryFiles: string[];
+  diffTruncated: boolean;
   warnings: string[];
+}
+
+interface ScopeResolutionOptions {
+  maxDiffOutputBytes?: number;
 }
 
 async function repositoryRoot(input: string): Promise<string> {
@@ -35,7 +40,7 @@ async function repositoryRoot(input: string): Promise<string> {
 
 function assertContained(root: string, target: string): void {
   const pathFromRoot = relative(root, target);
-  if (pathFromRoot.startsWith("..") || isAbsolute(pathFromRoot)) {
+  if (pathFromRoot === ".." || pathFromRoot.startsWith(`..${sep}`) || isAbsolute(pathFromRoot)) {
     throw new ScopeResolutionError(`Resolved path leaves the repository: ${target}`);
   }
 }
@@ -62,6 +67,27 @@ new file mode 100644
 @@ -0,0 +1,${effectiveLines.length} @@
 ${additions}
 `;
+}
+
+function synthesizeBinaryHunk(path: string): ChangedHunk {
+  return {
+    id: `${path}:1:0:binary`,
+    path,
+    header: "Binary file added",
+    oldRange: { start: 0, count: 0 },
+    newRange: { start: 1, count: 0 },
+    location: {
+      path,
+      side: "current",
+      start: 1,
+      end: 1,
+      deleted: false,
+    },
+    lines: [],
+    editKind: "added",
+    binary: true,
+    generated: false,
+  };
 }
 
 async function collectUntracked(root: string): Promise<{
@@ -92,12 +118,14 @@ async function collectUntracked(root: string): Promise<{
     }
     if (metadata.size > MAX_UNTRACKED_BYTES) {
       binaryFiles.push(path);
+      hunks.push(synthesizeBinaryHunk(path));
       warnings.push(`Untracked file exceeded the ${MAX_UNTRACKED_BYTES}-byte content cap: ${path}`);
       continue;
     }
     const buffer = await readFile(target);
     if (buffer.includes(0)) {
       binaryFiles.push(path);
+      hunks.push(synthesizeBinaryHunk(path));
       continue;
     }
     const parsed = parseUnifiedDiff(synthesizeNewFilePatch(path.replaceAll("\\", "/"), buffer.toString("utf8")));
@@ -121,7 +149,10 @@ function stableHunks(hunks: ChangedHunk[]): ChangedHunk[] {
   );
 }
 
-export async function resolveWorkingChange(input: string): Promise<ResolvedChange> {
+export async function resolveWorkingChange(
+  input: string,
+  options: ScopeResolutionOptions = {},
+): Promise<ResolvedChange> {
   const root = await repositoryRoot(input);
   const headObject = await resolveHead(root);
   if (headObject === null) {
@@ -135,7 +166,7 @@ export async function resolveWorkingChange(input: string): Promise<ResolvedChang
     "--binary",
     "HEAD",
     "--",
-  ]);
+  ], options.maxDiffOutputBytes === undefined ? {} : { maxOutputBytes: options.maxDiffOutputBytes });
   const status = await runGit(root, ["status", "--porcelain=v1", "-uno"]);
   const untracked = await collectUntracked(root);
   const trackedHunks = parseUnifiedDiff(diff.stdout);
@@ -152,7 +183,11 @@ export async function resolveWorkingChange(input: string): Promise<ResolvedChang
     dirty: status.stdout.length > 0 || untracked.hunks.length > 0 || untracked.binaryFiles.length > 0,
     hunks: stableHunks([...trackedHunks, ...untracked.hunks]),
     binaryFiles: [...new Set(binaryFiles)],
-    warnings: untracked.warnings,
+    diffTruncated: diff.truncated,
+    warnings: [
+      ...untracked.warnings,
+      ...(diff.truncated ? ["Git diff output was truncated at the configured byte bound."] : []),
+    ],
   };
 }
 
@@ -173,7 +208,12 @@ async function resolveCommit(root: string, revision: string, label: string): Pro
   }
 }
 
-export async function resolveRevisionRange(input: string, baseInput: string, headInput: string): Promise<ResolvedChange> {
+export async function resolveRevisionRange(
+  input: string,
+  baseInput: string,
+  headInput: string,
+  options: ScopeResolutionOptions = {},
+): Promise<ResolvedChange> {
   const root = await repositoryRoot(input);
   const baseObject = await resolveCommit(root, baseInput, "base");
   const headObject = await resolveCommit(root, headInput, "head");
@@ -192,7 +232,7 @@ export async function resolveRevisionRange(input: string, baseInput: string, hea
     mergeBaseObject,
     headObject,
     "--",
-  ]);
+  ], options.maxDiffOutputBytes === undefined ? {} : { maxOutputBytes: options.maxDiffOutputBytes });
   const hunks = parseUnifiedDiff(diff.stdout);
   const scope: RangeScope = {
     kind: "range",
@@ -210,6 +250,9 @@ export async function resolveRevisionRange(input: string, baseInput: string, hea
     dirty: false,
     hunks: stableHunks(hunks),
     binaryFiles: hunks.filter((hunk) => hunk.binary).map((hunk) => hunk.path).sort(),
-    warnings: [],
+    diffTruncated: diff.truncated,
+    warnings: diff.truncated
+      ? ["Git diff output was truncated at the configured byte bound."]
+      : [],
   };
 }

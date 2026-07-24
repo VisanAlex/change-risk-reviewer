@@ -11,11 +11,15 @@ function stem(path: string): string {
 export async function collectTestSignals(
   repository: string,
   hunks: readonly ChangedHunk[],
+  snapshot?: string,
 ): Promise<{
   tests: { changed: string[]; candidates: string[]; unverifiedAreas: string[] };
   capability: CapabilityRecord;
 }> {
-  const listed = await runGit(repository, ["ls-files", "-co", "--exclude-standard", "-z"]);
+  const listArgs = snapshot === undefined
+    ? ["ls-files", "-co", "--exclude-standard", "-z"]
+    : ["ls-tree", "-r", "--name-only", "-z", snapshot];
+  const listed = await runGit(repository, listArgs);
   const repositoryTests = [...new Set(listed.stdout.split("\0").filter(Boolean).map((path) => path.replaceAll("\\", "/")))]
     .filter((path) => TEST_PATH.test(path))
     .sort();
@@ -33,8 +37,12 @@ export async function collectTestSignals(
     capability: {
       collector: "test-signals",
       status: "available",
-      details: "Convention-based changed and nearby test paths; no test-quality judgment.",
-      limits: { maxCandidateTests: 50, maxUnverifiedAreas: 50 },
+      details: `Convention-based changed and nearby test paths from ${snapshot === undefined ? "the working tree" : "the selected head"}; no test-quality judgment.`,
+      limits: {
+        maxCandidateTests: 50,
+        maxUnverifiedAreas: 50,
+        snapshot: snapshot === undefined ? "working-tree" : "selected-head",
+      },
     },
   };
 }

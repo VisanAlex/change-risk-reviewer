@@ -48,11 +48,16 @@ bounded untracked text snapshots. Ignored files are excluded. Untracked binary
 files are metadata only; untracked symlinks are not followed.
 
 A named range resolves base and head to commit objects, finds their merge base,
-and diffs the merge base against head. Invalid ranges stop before collection and
-never fall back to the working tree.
+and diffs the merge base against head. References, test paths, and history are
+also collected from that resolved head object, independent of the current
+checkout. Invalid ranges stop before collection and never fall back to the
+working tree.
 
 Locations use repository-relative POSIX paths. Current-side line ranges are
 preferred; deletion-only hunks retain old-side ranges.
+
+Git diff output has a byte bound. Reaching it marks Git scope `partial` and
+emits a warning instead of silently presenting an incomplete diff as complete.
 
 ## Collectors
 
@@ -60,11 +65,11 @@ All collectors are bounded and read-only.
 
 | Collector | Observation | Important limit |
 |---|---|---|
-| Git scope | hunks, edit kinds, object IDs | external diff/textconv disabled |
+| Git scope | hunks, edit kinds, object IDs | external diff/textconv disabled; truncation disclosed |
 | File signals | conservative roles, changed token patterns | pattern evidence only |
-| Text references | literal file breadth and import-pattern files | not semantic call sites |
-| Git history | recent frequency and co-change breadth | 100 commits per path |
-| Test signals | changed and convention-nearby test paths | no adequacy judgment |
+| Text references | literal file breadth and import-pattern files | at most 100 ordinary and 5 generated hunks; not semantic call sites |
+| Git history | recent frequency and co-change breadth | one shared 100-commit window across at most 100 ordinary and 5 generated paths |
+| Test signals | changed and convention-nearby test paths | selected-head snapshot for ranges; no adequacy judgment |
 | Language intelligence | unavailable in the baseline | semantic reach remains unknown |
 
 A collector failure retains already completed facts. Capability records say
@@ -100,9 +105,11 @@ contract.
 ## Security and privacy
 
 Child processes use argument arrays with `shell: false`. Git pagers, external
-diff, text conversion, and optional locks are disabled for collection.
+diff, text conversion, filesystem-monitor hooks, and optional locks are
+disabled for collection.
 Ripgrep runs with `--no-config`. File reads verify containment and real paths.
-No collector sends network requests or executes repository scripts.
+Checked-out submodule directories are excluded from working-tree search. No
+collector sends network requests or executes repository scripts.
 
 The helper is offline; host-model processing follows the host's policy. The
 skill minimizes source context and never dumps the full diff into its report.

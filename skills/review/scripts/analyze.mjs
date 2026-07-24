@@ -83,6 +83,9 @@ function classifyPath(path) {
   if (/(^|\/)(tests?|spec|__tests__)\//u.test(normalized) || /\.(test|spec)\.[^.]+$/u.test(filename)) {
     roles2.push("test");
   }
+  if (!normalized.includes("/skills/") && (normalized.includes("/docs/") || /\.(md|mdx|rst|adoc)$/u.test(filename))) {
+    roles2.push("documentation");
+  }
   return { generated, roles: [...new Set(roles2)].sort() };
 }
 function changedText(hunk) {
@@ -238,31 +241,87 @@ async function runProcess(command, args, options) {
 async function runGit(repository, args, options = {}) {
   return await runProcess(
     "git",
-    ["--no-pager", "-c", "core.quotePath=false", ...args],
+    ["--no-pager", "-c", "core.quotePath=false", "-c", "core.fsmonitor=false", ...args],
     { ...options, cwd: repository }
   );
 }
 
 // src/collectors/history.ts
 var HISTORY_COMMITS = 100;
-async function collectHistoryFacts(repository, hunks) {
-  const facts = [];
+var MAX_HISTORY_PATHS = 100;
+var MAX_GENERATED_HISTORY_PATHS = 5;
+function selectedPaths(hunks) {
+  const generatedByPath = /* @__PURE__ */ new Map();
+  for (const hunk of hunks) {
+    generatedByPath.set(hunk.path, (generatedByPath.get(hunk.path) ?? true) && hunk.generated);
+  }
+  const paths = [...generatedByPath].sort(([left], [right]) => left.localeCompare(right));
+  const ordinary = paths.filter(([, generated2]) => !generated2).map(([path]) => path).slice(0, MAX_HISTORY_PATHS);
+  const generated = paths.filter(([, isGenerated]) => isGenerated).map(([path]) => path).slice(0, MAX_GENERATED_HISTORY_PATHS);
+  const selected = [...ordinary, ...generated];
+  return { selected, skipped: paths.length - selected.length };
+}
+function parseCommitPaths(output) {
+  const commits = [];
+  let current;
+  for (const token of output.split("\0").filter(Boolean)) {
+    if (token.startsWith("__CRR_COMMIT__")) {
+      current = { commit: token.slice("__CRR_COMMIT__".length), paths: /* @__PURE__ */ new Set() };
+      commits.push(current);
+    } else if (current !== void 0) {
+      current.paths.add(token.replace(/^\r?\n/u, "").replaceAll("\\", "/"));
+    }
+  }
+  return commits;
+}
+async function collectHistoryFacts(repository, hunks, revision) {
+  const { selected, skipped } = selectedPaths(hunks);
+  if (selected.length === 0) {
+    return {
+      facts: [],
+      capability: {
+        collector: "git-history",
+        status: "available",
+        details: "No changed paths required history collection.",
+        limits: {
+          maxCommits: HISTORY_COMMITS,
+          maxPaths: MAX_HISTORY_PATHS,
+          maxGeneratedPaths: MAX_GENERATED_HISTORY_PATHS,
+          skippedPaths: 0,
+          revision: "selected-head"
+        }
+      },
+      warnings: []
+    };
+  }
   try {
-    for (const hunk of hunks) {
-      const result = await runGit(
-        repository,
-        ["log", `--max-count=${HISTORY_COMMITS}`, "--format=__CRR_COMMIT__%H", "--name-only", "--", hunk.path],
-        { timeoutMs: 4e3, maxOutputBytes: 512 * 1024 }
-      );
-      const commits = result.stdout.split(/\r?\n/u).filter((line) => line.startsWith("__CRR_COMMIT__"));
+    const args = [
+      "log",
+      `--max-count=${HISTORY_COMMITS}`,
+      "--format=__CRR_COMMIT__%H",
+      "--name-only",
+      "--full-diff",
+      "-z",
+      revision,
+      "--",
+      ...selected
+    ];
+    const result = await runGit(repository, args, {
+      timeoutMs: 6e3,
+      maxOutputBytes: 2 * 1024 * 1024
+    });
+    const commits = parseCommitPaths(result.stdout);
+    const facts = [];
+    const source = {
+      tool: "git",
+      args,
+      cwd: repository.replaceAll("\\", "/")
+    };
+    for (const hunk of hunks.filter((candidate) => selected.includes(candidate.path))) {
+      const matchingCommits = commits.filter((commit) => commit.paths.has(hunk.path));
       const cochanged = new Set(
-        result.stdout.split(/\r?\n/u).filter((line) => line.length > 0 && !line.startsWith("__CRR_COMMIT__") && line !== hunk.path).map((path) => path.replaceAll("\\", "/"))
+        matchingCommits.flatMap((commit) => [...commit.paths].filter((path) => path !== hunk.path))
       );
-      const source = {
-        tool: "git",
-        args: ["log", `--max-count=${HISTORY_COMMITS}`, "--format=<commit>", "--name-only", "--", hunk.path],
-        cwd: repository.replaceAll("\\", "/")
-      };
       facts.push({
         id: `${hunk.id}:history-frequency`,
         hunkId: hunk.id,
@@ -270,7 +329,7 @@ async function collectHistoryFacts(repository, hunks) {
         collector: "git-history",
         source,
         strength: "verified",
-        value: { count: commits.length, window: HISTORY_COMMITS }
+        value: { count: matchingCommits.length, window: HISTORY_COMMITS }
       });
       facts.push({
         id: `${hunk.id}:history-cochange`,
@@ -282,34 +341,50 @@ async function collectHistoryFacts(repository, hunks) {
         value: { count: cochanged.size, samplePaths: [...cochanged].sort().slice(0, 20) }
       });
     }
-  } catch (error) {
+    const partial = skipped > 0 || result.truncated;
     return {
       facts,
       capability: {
         collector: "git-history",
-        status: facts.length > 0 ? "partial" : "unavailable",
-        details: `History collection stopped: ${error instanceof Error ? error.message : String(error)}`,
-        limits: { maxCommitsPerPath: HISTORY_COMMITS }
+        status: partial ? "partial" : "available",
+        details: "Bounded change frequency and cross-file co-change observations from one shared commit window.",
+        limits: {
+          maxCommits: HISTORY_COMMITS,
+          maxPaths: MAX_HISTORY_PATHS,
+          maxGeneratedPaths: MAX_GENERATED_HISTORY_PATHS,
+          skippedPaths: skipped,
+          revision: "selected-head",
+          truncated: result.truncated
+        }
       },
-      warnings: ["Git history evidence is incomplete; completed facts were retained."]
+      warnings: partial ? ["Git history evidence is incomplete; completed facts were retained."] : []
+    };
+  } catch (error) {
+    return {
+      facts: [],
+      capability: {
+        collector: "git-history",
+        status: "unavailable",
+        details: `History collection failed: ${error instanceof Error ? error.message : String(error)}`,
+        limits: {
+          maxCommits: HISTORY_COMMITS,
+          maxPaths: MAX_HISTORY_PATHS,
+          maxGeneratedPaths: MAX_GENERATED_HISTORY_PATHS,
+          skippedPaths: skipped,
+          revision: "selected-head"
+        }
+      },
+      warnings: ["Git history evidence is unavailable."]
     };
   }
-  return {
-    facts,
-    capability: {
-      collector: "git-history",
-      status: "available",
-      details: "Bounded per-path change frequency and cross-file co-change observations.",
-      limits: { maxCommitsPerPath: HISTORY_COMMITS }
-    },
-    warnings: []
-  };
 }
 
 // src/collectors/references.ts
 import { readFile, realpath } from "node:fs/promises";
-import { basename as basename2, extname as extname2, isAbsolute, relative, resolve } from "node:path";
+import { basename as basename2, extname as extname2, isAbsolute, relative, resolve, sep } from "node:path";
 var MAX_TERMS_PER_HUNK = 8;
+var MAX_REFERENCE_HUNKS = 100;
+var MAX_GENERATED_REFERENCE_HUNKS = 5;
 var MAX_MATCHED_FILES = 200;
 var MAX_FILE_BYTES = 256 * 1024;
 var IDENTIFIER = /\b[A-Za-z_$][A-Za-z0-9_$]{2,}\b/gu;
@@ -348,150 +423,267 @@ function termsForHunk(hunk) {
   const identifiers = hunk.lines.filter((line) => line.kind === "add" || line.kind === "delete").flatMap((line) => [...line.content.matchAll(IDENTIFIER)].map((match) => match[0] ?? "")).filter((term) => term.length >= 3 && !KEYWORDS.has(term.toLowerCase()));
   return [.../* @__PURE__ */ new Set([stem2, ...identifiers])].filter((term) => term.length >= 3 && !/^[0-9]+$/u.test(term)).sort((left, right) => right.length - left.length || left.localeCompare(right)).slice(0, MAX_TERMS_PER_HUNK);
 }
-function normalizeResultPath(path) {
-  return path.replace(/^\.[/\\]/u, "").replaceAll("\\", "/");
+function normalizeResultPath(path, snapshot) {
+  const withoutTree = snapshot !== void 0 && path.startsWith(`${snapshot}:`) ? path.slice(snapshot.length + 1) : path;
+  return withoutTree.replace(/^\.[/\\]/u, "").replaceAll("\\", "/");
 }
-async function isImportReference(root, path, terms) {
+function escapeGlobPath(path) {
+  return path.replaceAll("\\", "/").replace(/([?*[\]{}!])/gu, "\\$1");
+}
+function submoduleExclusionGlobs(paths) {
+  return [...new Set(paths)].sort().map((path) => `!${escapeGlobPath(path)}/**`);
+}
+async function workingTreeSubmodules(repository) {
+  const result = await runGit(repository, ["ls-files", "--stage", "-z"], {
+    timeoutMs: 4e3,
+    maxOutputBytes: 512 * 1024
+  });
+  return result.stdout.split("\0").filter((entry) => entry.startsWith("160000 ")).map((entry) => {
+    const separator = entry.indexOf("	");
+    return separator === -1 ? "" : entry.slice(separator + 1).replaceAll("\\", "/");
+  }).filter(Boolean);
+}
+async function isWorkingImportReference(root, canonicalRoot, path, terms) {
   const target = resolve(root, ...path.split("/"));
   const pathFromRoot = relative(root, target);
-  if (pathFromRoot.startsWith("..") || isAbsolute(pathFromRoot)) {
+  if (pathFromRoot === ".." || pathFromRoot.startsWith(`..${sep}`) || isAbsolute(pathFromRoot)) {
     return false;
   }
-  const canonicalRoot = await realpath(root);
   const canonicalTarget = await realpath(target);
   const canonicalRelative = relative(canonicalRoot, canonicalTarget);
-  if (canonicalRelative.startsWith("..") || isAbsolute(canonicalRelative)) {
+  if (canonicalRelative === ".." || canonicalRelative.startsWith(`..${sep}`) || isAbsolute(canonicalRelative)) {
     return false;
   }
   const buffer = await readFile(canonicalTarget);
   if (buffer.byteLength > MAX_FILE_BYTES || buffer.includes(0)) {
     return false;
   }
+  return containsImportReference(buffer, terms);
+}
+function containsImportReference(buffer, terms) {
   return buffer.toString("utf8").split(/\r?\n/u).some((line) => IMPORT_LINE.test(line) && terms.some((term) => line.includes(term)));
 }
-async function collectReferenceFacts(repository, hunks, rgCommand = "rg") {
-  try {
-    await runProcess(rgCommand, ["--version"], {
-      cwd: repository,
-      timeoutMs: 2e3,
-      maxOutputBytes: 8192
-    });
-  } catch (error) {
-    const detail = error instanceof ProcessExecutionError ? error.message : String(error);
+function orderedHunks(hunks) {
+  return [...hunks].sort(
+    (left, right) => Number(left.generated) - Number(right.generated) || left.path.localeCompare(right.path) || left.location.start - right.location.start || left.id.localeCompare(right.id)
+  );
+}
+function selectedReferenceHunks(hunks) {
+  const ordered = orderedHunks(hunks);
+  return [
+    ...ordered.filter((hunk) => !hunk.generated).slice(0, MAX_REFERENCE_HUNKS),
+    ...ordered.filter((hunk) => hunk.generated).slice(0, MAX_GENERATED_REFERENCE_HUNKS)
+  ];
+}
+async function collectMatches(repository, hunk, terms, options, submoduleGlobs) {
+  if (terms.length === 0) {
     return {
-      facts: [],
-      capability: {
-        collector: "text-references",
-        status: "unavailable",
-        details: `ripgrep unavailable: ${detail}`,
-        limits: {
-          maxTermsPerHunk: MAX_TERMS_PER_HUNK,
-          maxMatchedFiles: MAX_MATCHED_FILES
-        }
-      },
-      warnings: ["Textual reference breadth is unavailable because ripgrep could not run."]
+      matchedPaths: /* @__PURE__ */ new Set(),
+      snapshotImportPaths: /* @__PURE__ */ new Set(),
+      truncated: false,
+      source: {
+        tool: options.snapshot === void 0 ? options.rgCommand : "git",
+        args: ["<no-searchable-terms>"],
+        cwd: repository.replaceAll("\\", "/")
+      }
     };
   }
-  const facts = [];
-  let truncated = false;
-  for (const hunk of hunks) {
-    const terms = termsForHunk(hunk);
-    const matchedPaths = /* @__PURE__ */ new Set();
-    for (const term of terms) {
-      const result = await runProcess(
-        rgCommand,
-        [
-          "--no-config",
-          "--hidden",
-          "--files-with-matches",
-          "--fixed-strings",
-          "--glob",
-          "!.git/**",
-          "--glob",
-          "!node_modules/**",
-          "--glob",
-          "!vendor/**",
-          "--",
-          term,
-          "."
-        ],
-        {
-          cwd: repository,
-          timeoutMs: 4e3,
-          maxOutputBytes: 512 * 1024,
-          allowExitCodes: [0, 1]
-        }
-      );
-      truncated ||= result.truncated;
-      for (const rawPath of result.stdout.split(/\r?\n/u).filter(Boolean)) {
-        const path = normalizeResultPath(rawPath);
-        if (path !== hunk.path) {
-          matchedPaths.add(path);
-        }
-        if (matchedPaths.size >= MAX_MATCHED_FILES) {
-          truncated = true;
-          break;
-        }
+  const termArgs = terms.flatMap((term) => ["-e", term]);
+  const result = options.snapshot === void 0 ? await runProcess(
+    options.rgCommand,
+    [
+      "--no-config",
+      "--hidden",
+      "--files-with-matches",
+      "--null",
+      "--fixed-strings",
+      "--glob",
+      "!.git/**",
+      "--glob",
+      "!node_modules/**",
+      "--glob",
+      "!vendor/**",
+      ...submoduleGlobs.flatMap((glob) => ["--glob", glob]),
+      ...termArgs,
+      "--",
+      "."
+    ],
+    {
+      cwd: repository,
+      timeoutMs: 4e3,
+      maxOutputBytes: 512 * 1024,
+      allowExitCodes: [0, 1]
+    }
+  ) : await runGit(
+    repository,
+    ["grep", "-n", "-z", "--full-name", "-F", ...termArgs, options.snapshot, "--"],
+    {
+      timeoutMs: 4e3,
+      maxOutputBytes: 512 * 1024,
+      allowExitCodes: [0, 1]
+    }
+  );
+  const matchedPaths = /* @__PURE__ */ new Set();
+  const snapshotImportPaths = /* @__PURE__ */ new Set();
+  let truncated = result.truncated;
+  if (options.snapshot === void 0) {
+    for (const rawPath of result.stdout.split("\0").filter(Boolean)) {
+      const path = normalizeResultPath(rawPath);
+      if (path !== hunk.path) {
+        matchedPaths.add(path);
       }
       if (matchedPaths.size >= MAX_MATCHED_FILES) {
+        truncated = true;
         break;
       }
     }
-    const samples = [...matchedPaths].sort().slice(0, 20);
-    const importMatches = [];
-    for (const path of [...matchedPaths].sort()) {
-      if (await isImportReference(repository, path, terms)) {
-        importMatches.push(path);
+  } else {
+    let cursor = 0;
+    while (cursor < result.stdout.length) {
+      const pathEnd = result.stdout.indexOf("\0", cursor);
+      const lineEnd = result.stdout.indexOf("\0", pathEnd + 1);
+      const contentEnd = result.stdout.indexOf("\n", lineEnd + 1);
+      if (pathEnd === -1 || lineEnd === -1) {
+        truncated = true;
+        break;
       }
+      const path = normalizeResultPath(result.stdout.slice(cursor, pathEnd), options.snapshot);
+      const content = result.stdout.slice(lineEnd + 1, contentEnd === -1 ? void 0 : contentEnd);
+      if (path !== hunk.path) {
+        matchedPaths.add(path);
+        if (IMPORT_LINE.test(content) && terms.some((term) => content.includes(term))) {
+          snapshotImportPaths.add(path);
+        }
+      }
+      if (matchedPaths.size >= MAX_MATCHED_FILES) {
+        truncated = true;
+        break;
+      }
+      if (contentEnd === -1) {
+        break;
+      }
+      cursor = contentEnd + 1;
     }
-    const source = {
-      tool: rgCommand,
-      args: ["--no-config", "--files-with-matches", "--fixed-strings", "--", "<bounded-terms>", "."],
-      cwd: repository.replaceAll("\\", "/")
-    };
-    facts.push({
-      id: `${hunk.id}:text-breadth`,
-      hunkId: hunk.id,
-      reasonCode: "TEXTUAL_REFERENCE_BREADTH",
-      collector: "text-references",
-      source,
-      strength: "verified",
-      value: { count: matchedPaths.size, samplePaths: samples, terms },
-      limits: {
-        maxTerms: MAX_TERMS_PER_HUNK,
-        maxMatchedFiles: MAX_MATCHED_FILES,
-        truncated
-      }
-    });
-    facts.push({
-      id: `${hunk.id}:import-breadth`,
-      hunkId: hunk.id,
-      reasonCode: "IMPORT_REFERENCE_BREADTH",
-      collector: "text-references",
-      source,
-      strength: "verified",
-      value: { count: importMatches.length, samplePaths: importMatches.slice(0, 20), terms },
-      limits: {
-        maxTerms: MAX_TERMS_PER_HUNK,
-        maxMatchedFiles: MAX_MATCHED_FILES,
-        truncated
-      }
-    });
   }
+  return {
+    matchedPaths,
+    snapshotImportPaths,
+    truncated,
+    source: {
+      tool: options.snapshot === void 0 ? options.rgCommand : "git",
+      args: options.snapshot === void 0 ? ["--no-config", "--files-with-matches", "--null", "--fixed-strings", "--", "<bounded-terms>", "."] : ["grep", "-n", "-z", "--fixed-strings", "<bounded-terms>", options.snapshot, "--"],
+      cwd: repository.replaceAll("\\", "/")
+    }
+  };
+}
+async function collectReferenceFacts(repository, hunks, options = {}) {
+  const rgCommand = options.rgCommand ?? "rg";
+  let submoduleGlobs = [];
+  if (options.snapshot === void 0) {
+    try {
+      await runProcess(rgCommand, ["--version"], {
+        cwd: repository,
+        timeoutMs: 2e3,
+        maxOutputBytes: 8192
+      });
+      submoduleGlobs = submoduleExclusionGlobs(await workingTreeSubmodules(repository));
+    } catch (error) {
+      const detail = error instanceof ProcessExecutionError ? error.message : String(error);
+      return {
+        facts: [],
+        capability: {
+          collector: "text-references",
+          status: "unavailable",
+          details: `Working-tree reference search unavailable: ${detail}`,
+          limits: {
+            maxTermsPerHunk: MAX_TERMS_PER_HUNK,
+            maxMatchedFiles: MAX_MATCHED_FILES
+          }
+        },
+        warnings: ["Textual reference breadth is unavailable because the working-tree search could not run safely."]
+      };
+    }
+  }
+  const selectedHunks = selectedReferenceHunks(hunks);
+  const skippedHunks = hunks.length - selectedHunks.length;
+  const facts = [];
+  const canonicalRoot = options.snapshot === void 0 ? await realpath(repository) : repository;
+  let truncated = skippedHunks > 0;
+  let failure = null;
+  for (const hunk of selectedHunks) {
+    try {
+      const terms = termsForHunk(hunk);
+      const matches = await collectMatches(
+        repository,
+        hunk,
+        terms,
+        { rgCommand, snapshot: options.snapshot },
+        submoduleGlobs
+      );
+      truncated ||= matches.truncated;
+      const importMatches = [...matches.snapshotImportPaths].sort();
+      if (options.snapshot === void 0) {
+        for (const path of [...matches.matchedPaths].sort()) {
+          if (await isWorkingImportReference(repository, canonicalRoot, path, terms)) {
+            importMatches.push(path);
+          }
+        }
+      }
+      const limits = {
+        maxTerms: MAX_TERMS_PER_HUNK,
+        maxMatchedFiles: MAX_MATCHED_FILES,
+        truncated: matches.truncated
+      };
+      facts.push({
+        id: `${hunk.id}:text-breadth`,
+        hunkId: hunk.id,
+        reasonCode: "TEXTUAL_REFERENCE_BREADTH",
+        collector: "text-references",
+        source: matches.source,
+        strength: "verified",
+        value: {
+          count: matches.matchedPaths.size,
+          samplePaths: [...matches.matchedPaths].sort().slice(0, 20),
+          terms
+        },
+        limits
+      });
+      facts.push({
+        id: `${hunk.id}:import-breadth`,
+        hunkId: hunk.id,
+        reasonCode: "IMPORT_REFERENCE_BREADTH",
+        collector: "text-references",
+        source: matches.source,
+        strength: "verified",
+        value: { count: importMatches.length, samplePaths: importMatches.slice(0, 20), terms },
+        limits
+      });
+    } catch (error) {
+      failure = error instanceof Error ? error.message : String(error);
+      truncated = true;
+      break;
+    }
+  }
+  const status = facts.length === 0 && failure !== null ? "unavailable" : truncated ? "partial" : "available";
   return {
     facts,
     capability: {
       collector: "text-references",
-      status: truncated ? "partial" : "available",
-      details: "Bounded literal repository occurrences; these are textual, not semantic call sites.",
+      status,
+      details: failure === null ? "Bounded literal repository occurrences; these are textual, not semantic call sites." : `Reference collection was incomplete: ${failure}`,
       limits: {
         maxTermsPerHunk: MAX_TERMS_PER_HUNK,
+        maxHunks: MAX_REFERENCE_HUNKS,
+        maxGeneratedHunks: MAX_GENERATED_REFERENCE_HUNKS,
         maxMatchedFiles: MAX_MATCHED_FILES,
         maxFileBytesForImportClassification: MAX_FILE_BYTES,
+        skippedHunks,
+        excludedSubmodules: submoduleGlobs.length,
+        snapshot: options.snapshot === void 0 ? "working-tree" : "selected-head",
         truncated
       }
     },
-    warnings: truncated ? ["Textual reference collection reached a configured bound."] : []
+    warnings: truncated ? ["Textual reference evidence is incomplete; completed facts were retained."] : []
   };
 }
 
@@ -501,8 +693,9 @@ var TEST_PATH = /(^|\/)(tests?|spec|__tests__)(\/|$)|\.(test|spec)\.[^/]+$/u;
 function stem(path) {
   return basename3(path, extname3(path)).replace(/\.(test|spec)$/u, "");
 }
-async function collectTestSignals(repository, hunks) {
-  const listed = await runGit(repository, ["ls-files", "-co", "--exclude-standard", "-z"]);
+async function collectTestSignals(repository, hunks, snapshot) {
+  const listArgs = snapshot === void 0 ? ["ls-files", "-co", "--exclude-standard", "-z"] : ["ls-tree", "-r", "--name-only", "-z", snapshot];
+  const listed = await runGit(repository, listArgs);
   const repositoryTests = [...new Set(listed.stdout.split("\0").filter(Boolean).map((path) => path.replaceAll("\\", "/")))].filter((path) => TEST_PATH.test(path)).sort();
   const changedPaths = [...new Set(hunks.map((hunk) => hunk.path))].sort();
   const changed = changedPaths.filter((path) => TEST_PATH.test(path));
@@ -515,15 +708,19 @@ async function collectTestSignals(repository, hunks) {
     capability: {
       collector: "test-signals",
       status: "available",
-      details: "Convention-based changed and nearby test paths; no test-quality judgment.",
-      limits: { maxCandidateTests: 50, maxUnverifiedAreas: 50 }
+      details: `Convention-based changed and nearby test paths from ${snapshot === void 0 ? "the working tree" : "the selected head"}; no test-quality judgment.`,
+      limits: {
+        maxCandidateTests: 50,
+        maxUnverifiedAreas: 50,
+        snapshot: snapshot === void 0 ? "working-tree" : "selected-head"
+      }
     }
   };
 }
 
 // src/git/scope.ts
 import { lstat, readFile as readFile2, realpath as realpath2 } from "node:fs/promises";
-import { isAbsolute as isAbsolute2, relative as relative2, resolve as resolve2 } from "node:path";
+import { isAbsolute as isAbsolute2, relative as relative2, resolve as resolve2, sep as sep2 } from "node:path";
 
 // src/git/diff.ts
 function stripPrefix(path) {
@@ -667,7 +864,7 @@ function parseUnifiedDiff(patch) {
         break;
       }
     }
-    const deleted = newRange.count === 0;
+    const deleted = file.editKind === "deleted" || newRange.count === 0 && file.editKind !== "added";
     const locationRange = deleted ? oldRange : newRange;
     const locationStart = Math.max(1, locationRange.start);
     const locationEnd = Math.max(locationStart, locationRange.start + Math.max(1, locationRange.count) - 1);
@@ -716,7 +913,7 @@ async function repositoryRoot(input) {
 }
 function assertContained(root, target) {
   const pathFromRoot = relative2(root, target);
-  if (pathFromRoot.startsWith("..") || isAbsolute2(pathFromRoot)) {
+  if (pathFromRoot === ".." || pathFromRoot.startsWith(`..${sep2}`) || isAbsolute2(pathFromRoot)) {
     throw new ScopeResolutionError(`Resolved path leaves the repository: ${target}`);
   }
 }
@@ -739,6 +936,26 @@ new file mode 100644
 @@ -0,0 +1,${effectiveLines.length} @@
 ${additions}
 `;
+}
+function synthesizeBinaryHunk(path) {
+  return {
+    id: `${path}:1:0:binary`,
+    path,
+    header: "Binary file added",
+    oldRange: { start: 0, count: 0 },
+    newRange: { start: 1, count: 0 },
+    location: {
+      path,
+      side: "current",
+      start: 1,
+      end: 1,
+      deleted: false
+    },
+    lines: [],
+    editKind: "added",
+    binary: true,
+    generated: false
+  };
 }
 async function collectUntracked(root) {
   const result = await runGit(root, ["ls-files", "--others", "--exclude-standard", "-z"]);
@@ -763,12 +980,14 @@ async function collectUntracked(root) {
     }
     if (metadata.size > MAX_UNTRACKED_BYTES) {
       binaryFiles.push(path);
+      hunks.push(synthesizeBinaryHunk(path));
       warnings.push(`Untracked file exceeded the ${MAX_UNTRACKED_BYTES}-byte content cap: ${path}`);
       continue;
     }
     const buffer = await readFile2(target);
     if (buffer.includes(0)) {
       binaryFiles.push(path);
+      hunks.push(synthesizeBinaryHunk(path));
       continue;
     }
     const parsed = parseUnifiedDiff(synthesizeNewFilePatch(path.replaceAll("\\", "/"), buffer.toString("utf8")));
@@ -786,7 +1005,7 @@ function stableHunks(hunks) {
     (left, right) => left.path.localeCompare(right.path) || left.location.start - right.location.start || left.id.localeCompare(right.id)
   );
 }
-async function resolveWorkingChange(input) {
+async function resolveWorkingChange(input, options = {}) {
   const root = await repositoryRoot(input);
   const headObject = await resolveHead(root);
   if (headObject === null) {
@@ -800,7 +1019,7 @@ async function resolveWorkingChange(input) {
     "--binary",
     "HEAD",
     "--"
-  ]);
+  ], options.maxDiffOutputBytes === void 0 ? {} : { maxOutputBytes: options.maxDiffOutputBytes });
   const status = await runGit(root, ["status", "--porcelain=v1", "-uno"]);
   const untracked = await collectUntracked(root);
   const trackedHunks = parseUnifiedDiff(diff.stdout);
@@ -816,7 +1035,11 @@ async function resolveWorkingChange(input) {
     dirty: status.stdout.length > 0 || untracked.hunks.length > 0 || untracked.binaryFiles.length > 0,
     hunks: stableHunks([...trackedHunks, ...untracked.hunks]),
     binaryFiles: [...new Set(binaryFiles)],
-    warnings: untracked.warnings
+    diffTruncated: diff.truncated,
+    warnings: [
+      ...untracked.warnings,
+      ...diff.truncated ? ["Git diff output was truncated at the configured byte bound."] : []
+    ]
   };
 }
 function validateRevision(revision, label) {
@@ -834,7 +1057,7 @@ async function resolveCommit(root, revision, label) {
     throw new ScopeResolutionError(`Could not resolve ${label} revision ${JSON.stringify(revision)}${detail ? `: ${detail}` : ""}`);
   }
 }
-async function resolveRevisionRange(input, baseInput, headInput) {
+async function resolveRevisionRange(input, baseInput, headInput, options = {}) {
   const root = await repositoryRoot(input);
   const baseObject = await resolveCommit(root, baseInput, "base");
   const headObject = await resolveCommit(root, headInput, "head");
@@ -853,7 +1076,7 @@ async function resolveRevisionRange(input, baseInput, headInput) {
     mergeBaseObject,
     headObject,
     "--"
-  ]);
+  ], options.maxDiffOutputBytes === void 0 ? {} : { maxOutputBytes: options.maxDiffOutputBytes });
   const hunks = parseUnifiedDiff(diff.stdout);
   const scope = {
     kind: "range",
@@ -870,7 +1093,8 @@ async function resolveRevisionRange(input, baseInput, headInput) {
     dirty: false,
     hunks: stableHunks(hunks),
     binaryFiles: hunks.filter((hunk) => hunk.binary).map((hunk) => hunk.path).sort(),
-    warnings: []
+    diffTruncated: diff.truncated,
+    warnings: diff.truncated ? ["Git diff output was truncated at the configured byte bound."] : []
   };
 }
 
@@ -918,6 +1142,7 @@ function rankCandidates(hunks, facts, testsChanged) {
     const hunkRoles = roles(hunkFacts);
     const hasControl = hunkFacts.some((fact) => fact.reasonCode === "CONTROL_FLOW_TOKEN");
     const hasPublicSurface = hunkFacts.some((fact) => fact.reasonCode === "PUBLIC_SURFACE_TOKEN");
+    const documentation = hunkRoles.includes("documentation");
     const sensitive = hunkRoles.some(
       (role) => ["auth-policy", "configuration", "migration", "routing", "shared-core"].includes(role)
     );
@@ -925,35 +1150,38 @@ function rankCandidates(hunks, facts, testsChanged) {
     const broadReach = textualBreadth >= 5 || importBreadth >= 3;
     const reasons = [];
     let band = "context";
-    if (changedLineCount <= 10 && broadReach && !generated) {
+    if (hunk.binary) {
+      reasons.push("BINARY_CHANGE");
+    }
+    if (changedLineCount <= 10 && broadReach && !generated && !hunk.binary && !documentation) {
       reasons.push("SMALL_HUNK_BROAD_REACH");
       band = "elevated";
     }
-    if (sensitive && broadReach && !generated) {
+    if (sensitive && broadReach && !generated && !hunk.binary && !documentation) {
       reasons.push("SENSITIVE_SHARED_PATH");
       band = "elevated";
     }
     if (textualBreadth >= 3 || importBreadth >= 2) {
       reasons.push("BROAD_TEXTUAL_REACH");
-      if (band === "context") {
+      if (band === "context" && !documentation) {
         band = "notable";
       }
     }
     if (hasControl) {
       reasons.push("CONTROL_FLOW_CHANGE");
-      if (band === "context" && sensitive) {
+      if (band === "context" && sensitive && !documentation) {
         band = "notable";
       }
     }
     if (hasPublicSurface) {
       reasons.push("PUBLIC_SURFACE_CHANGE");
-      if (band === "context") {
+      if (band === "context" && !documentation) {
         band = "notable";
       }
     }
     if (sensitive) {
       reasons.push("SENSITIVE_FILE_ROLE");
-      if (band === "context") {
+      if (band === "context" && !documentation) {
         band = "notable";
       }
     }
@@ -1009,14 +1237,18 @@ function summarizeChangedFiles(hunks) {
 async function analyzeChange(options) {
   const resolved = options.scope.kind === "working" ? await resolveWorkingChange(options.repository) : await resolveRevisionRange(options.repository, options.scope.base, options.scope.head);
   const fileSignals = collectFileSignalFacts(resolved.hunks);
+  const snapshot = resolved.scope.kind === "range" ? resolved.scope.headObject : void 0;
   const [references, history, testSignals] = await Promise.all([
     collectReferenceFacts(
       resolved.repositoryRoot,
       fileSignals.hunks,
-      options.collectorOptions?.rgCommand
+      {
+        rgCommand: options.collectorOptions?.rgCommand,
+        snapshot
+      }
     ),
-    collectHistoryFacts(resolved.repositoryRoot, fileSignals.hunks),
-    collectTestSignals(resolved.repositoryRoot, fileSignals.hunks)
+    collectHistoryFacts(resolved.repositoryRoot, fileSignals.hunks, resolved.headObject ?? "HEAD"),
+    collectTestSignals(resolved.repositoryRoot, fileSignals.hunks, snapshot)
   ]);
   const facts = [...fileSignals.facts, ...references.facts, ...history.facts].sort(
     (left, right) => left.hunkId.localeCompare(right.hunkId) || left.id.localeCompare(right.id)
@@ -1024,9 +1256,9 @@ async function analyzeChange(options) {
   const capabilities = [
     {
       collector: "git-scope",
-      status: "available",
+      status: resolved.diffTruncated ? "partial" : "available",
       details: "Git diff collected with external diff and text conversion disabled.",
-      limits: { maxUntrackedFileBytes: 256 * 1024 }
+      limits: { maxUntrackedFileBytes: 256 * 1024, diffTruncated: resolved.diffTruncated }
     },
     {
       collector: "file-signals",

@@ -19,6 +19,7 @@
     ".codex-plugin/",
     "benchmarks/",
     "docs/",
+    "scripts/validate-packaging.mjs",
     "skills/",
     "CONTRIBUTING.md",
     "LICENSE",

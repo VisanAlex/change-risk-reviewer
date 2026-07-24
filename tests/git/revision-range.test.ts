@@ -29,4 +29,17 @@ describe("revision range scope", () => {
       ScopeResolutionError,
     );
   });
+
+  it("discloses when the configured diff output bound truncates a range", async () => {
+    const repository = await createRepository({ "src/value.ts": "export const value = 1;\n" });
+    const base = (await runGit(repository, "rev-parse", "HEAD")).trim();
+    await writeRepositoryFile(repository, "src/value.ts", "export const value = 222222222222222;\n");
+    await runGit(repository, "add", ".");
+    await runGit(repository, "commit", "-m", "change value");
+
+    const result = await resolveRevisionRange(repository, base, "HEAD", { maxDiffOutputBytes: 80 });
+
+    expect(result.diffTruncated).toBe(true);
+    expect(result.warnings.join(" ")).toMatch(/truncated/i);
+  });
 });

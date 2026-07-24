@@ -28,14 +28,16 @@ distinct process arguments.
 3. Resolve their merge base.
 4. Diff the merge base against the resolved head with `--no-ext-diff` and
    `--no-textconv`.
-5. An invalid range is an error; never substitute the working tree.
+5. Read range reference, test-path, and history evidence from the resolved head
+   object, not from the current checkout.
+6. An invalid range is an error; never substitute the working tree.
 
 ## Bounded reach
 
 When ripgrep exists, use `--no-config`, fixed strings, ignored-directory globs,
 and explicit caps. Search changed path stems and conservative changed
 identifiers. Say `N files contain a literal occurrence`; do not say `N call
-sites`.
+sites`. Exclude checked-out submodule directories from working-tree search.
 
 When ripgrep is missing, use Git-native path and history evidence only.
 

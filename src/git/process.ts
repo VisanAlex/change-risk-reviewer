@@ -106,7 +106,7 @@ export async function runGit(
 ): Promise<ProcessResult> {
   return await runProcess(
     "git",
-    ["--no-pager", "-c", "core.quotePath=false", ...args],
+    ["--no-pager", "-c", "core.quotePath=false", "-c", "core.fsmonitor=false", ...args],
     { ...options, cwd: repository },
   );
 }

@@ -52,14 +52,18 @@ export async function analyzeChange(options: AnalyzeChangeOptions): Promise<Evid
       ? await resolveWorkingChange(options.repository)
       : await resolveRevisionRange(options.repository, options.scope.base, options.scope.head);
   const fileSignals = collectFileSignalFacts(resolved.hunks);
+  const snapshot = resolved.scope.kind === "range" ? resolved.scope.headObject : undefined;
   const [references, history, testSignals] = await Promise.all([
     collectReferenceFacts(
       resolved.repositoryRoot,
       fileSignals.hunks,
-      options.collectorOptions?.rgCommand,
+      {
+        rgCommand: options.collectorOptions?.rgCommand,
+        snapshot,
+      },
     ),
-    collectHistoryFacts(resolved.repositoryRoot, fileSignals.hunks),
-    collectTestSignals(resolved.repositoryRoot, fileSignals.hunks),
+    collectHistoryFacts(resolved.repositoryRoot, fileSignals.hunks, resolved.headObject ?? "HEAD"),
+    collectTestSignals(resolved.repositoryRoot, fileSignals.hunks, snapshot),
   ]);
   const facts: EvidenceFact[] = [...fileSignals.facts, ...references.facts, ...history.facts].sort(
     (left, right) => left.hunkId.localeCompare(right.hunkId) || left.id.localeCompare(right.id),
@@ -67,9 +71,9 @@ export async function analyzeChange(options: AnalyzeChangeOptions): Promise<Evid
   const capabilities: CapabilityRecord[] = ([
     {
       collector: "git-scope",
-      status: "available",
+      status: resolved.diffTruncated ? "partial" : "available",
       details: "Git diff collected with external diff and text conversion disabled.",
-      limits: { maxUntrackedFileBytes: 256 * 1024 },
+      limits: { maxUntrackedFileBytes: 256 * 1024, diffTruncated: resolved.diffTruncated },
     },
     {
       collector: "file-signals",

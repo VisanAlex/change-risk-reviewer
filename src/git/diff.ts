@@ -156,7 +156,7 @@ export function parseUnifiedDiff(patch: string): ChangedHunk[] {
       }
     }
 
-    const deleted = newRange.count === 0;
+    const deleted = file.editKind === "deleted" || (newRange.count === 0 && file.editKind !== "added");
     const locationRange = deleted ? oldRange : newRange;
     const locationStart = Math.max(1, locationRange.start);
     const locationEnd = Math.max(locationStart, locationRange.start + Math.max(1, locationRange.count) - 1);

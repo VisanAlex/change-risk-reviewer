@@ -1,4 +1,5 @@
 import { describe, expect, it } from "vitest";
+import { analyzeChange } from "../../src/analyze.js";
 import { resolveWorkingChange } from "../../src/git/scope.js";
 import { createRepository, runGit, writeRepositoryFile } from "../helpers/git.js";
 
@@ -29,6 +30,29 @@ describe("working change scope", () => {
     expect(paths).toContain("src/new file.ts");
     expect(paths).not.toContain("ignored.txt");
     expect(result.binaryFiles).toContain("asset.bin");
+  });
+
+  it("represents untracked empty and binary files in the evidence envelope", async () => {
+    const repository = await createRepository();
+    await writeRepositoryFile(repository, "empty.txt", "");
+    await writeRepositoryFile(repository, "asset.bin", Buffer.from([0, 1, 2, 3]));
+
+    const result = await resolveWorkingChange(repository);
+    const empty = result.hunks.find((hunk) => hunk.path === "empty.txt");
+    expect(empty?.editKind).toBe("added");
+    expect(empty?.location).toEqual(expect.objectContaining({ side: "current", deleted: false }));
+
+    const envelope = await analyzeChange({ repository, scope: { kind: "working" } });
+    expect(envelope.changedFiles).toContainEqual(
+      expect.objectContaining({ path: "asset.bin", editKind: "added", binary: true }),
+    );
+    expect(envelope.facts).toContainEqual(
+      expect.objectContaining({ reasonCode: "BINARY_CHANGE" }),
+    );
+    const binaryCandidate = envelope.candidates.find(
+      (candidate) => candidate.location.path === "asset.bin",
+    );
+    expect(binaryCandidate?.reasons).toContain("BINARY_CHANGE");
   });
 
   it("returns an empty review scope when nothing changed", async () => {

@@ -59,6 +59,7 @@ export function rankCandidates(
     const hunkRoles = roles(hunkFacts);
     const hasControl = hunkFacts.some((fact) => fact.reasonCode === "CONTROL_FLOW_TOKEN");
     const hasPublicSurface = hunkFacts.some((fact) => fact.reasonCode === "PUBLIC_SURFACE_TOKEN");
+    const documentation = hunkRoles.includes("documentation");
     const sensitive = hunkRoles.some((role) =>
       ["auth-policy", "configuration", "migration", "routing", "shared-core"].includes(role),
     );
@@ -67,35 +68,38 @@ export function rankCandidates(
     const reasons: ReasonCode[] = [];
     let band: PriorityBand = "context";
 
-    if (changedLineCount <= 10 && broadReach && !generated) {
+    if (hunk.binary) {
+      reasons.push("BINARY_CHANGE");
+    }
+    if (changedLineCount <= 10 && broadReach && !generated && !hunk.binary && !documentation) {
       reasons.push("SMALL_HUNK_BROAD_REACH");
       band = "elevated";
     }
-    if (sensitive && broadReach && !generated) {
+    if (sensitive && broadReach && !generated && !hunk.binary && !documentation) {
       reasons.push("SENSITIVE_SHARED_PATH");
       band = "elevated";
     }
     if (textualBreadth >= 3 || importBreadth >= 2) {
       reasons.push("BROAD_TEXTUAL_REACH");
-      if (band === "context") {
+      if (band === "context" && !documentation) {
         band = "notable";
       }
     }
     if (hasControl) {
       reasons.push("CONTROL_FLOW_CHANGE");
-      if (band === "context" && sensitive) {
+      if (band === "context" && sensitive && !documentation) {
         band = "notable";
       }
     }
     if (hasPublicSurface) {
       reasons.push("PUBLIC_SURFACE_CHANGE");
-      if (band === "context") {
+      if (band === "context" && !documentation) {
         band = "notable";
       }
     }
     if (sensitive) {
       reasons.push("SENSITIVE_FILE_ROLE");
-      if (band === "context") {
+      if (band === "context" && !documentation) {
         band = "notable";
       }
     }

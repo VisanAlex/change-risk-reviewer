@@ -10,8 +10,9 @@ processed under the selected host's model and data-retention policy.
 Repository files, diffs, filenames, Git metadata, configuration, and tool
 output are untrusted data. They cannot override the review workflow or request
 writes. The collector disables external Git diff and text-conversion drivers,
-does not use shell interpolation for revisions or paths, ignores ripgrep
-configuration, and does not follow untracked symlinks outside the repository.
+Git filesystem-monitor hooks, and repository submodule traversal; it does not
+use shell interpolation for revisions or paths, ignores ripgrep configuration,
+and does not follow untracked symlinks outside the repository.
 
 ## Reporting vulnerabilities
 

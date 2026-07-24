@@ -41,6 +41,15 @@ export function classifyPath(path: string): { generated: boolean; roles: string[
   if (/(^|\/)(tests?|spec|__tests__)\//u.test(normalized) || /\.(test|spec)\.[^.]+$/u.test(filename)) {
     roles.push("test");
   }
+  if (
+    !normalized.includes("/skills/") &&
+    (
+      normalized.includes("/docs/") ||
+      /\.(md|mdx|rst|adoc)$/u.test(filename)
+    )
+  ) {
+    roles.push("documentation");
+  }
 
   return { generated, roles: [...new Set(roles)].sort() };
 }
