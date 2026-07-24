@@ -1,6 +1,6 @@
 import { mkdir, mkdtemp, readFile, readdir, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
-import { basename, dirname, isAbsolute, join, relative, resolve, sep } from "node:path";
+import { basename, dirname, isAbsolute, join, posix, relative, resolve, sep, win32 } from "node:path";
 import { fileURLToPath } from "node:url";
 import { analyzeChange } from "../analyze.js";
 import {
@@ -125,10 +125,16 @@ function applyTemplate(template: string, index: number): string {
 }
 
 export function resolveFixturePath(repository: string, path: string): string {
-  if (path.length === 0 || isAbsolute(path) || /[\0\r\n]/u.test(path)) {
+  const normalizedPath = path.replaceAll("\\", "/");
+  if (
+    path.length === 0 ||
+    posix.isAbsolute(normalizedPath) ||
+    win32.isAbsolute(path) ||
+    /[\0\r\n]/u.test(path)
+  ) {
     throw new Error(`Benchmark fixture path must be a relative single-line path: ${JSON.stringify(path)}`);
   }
-  const target = resolve(repository, ...path.split("/"));
+  const target = resolve(repository, ...normalizedPath.split("/"));
   const pathFromRepository = relative(resolve(repository), target);
   if (
     pathFromRepository.length === 0 ||

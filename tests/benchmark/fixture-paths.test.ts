@@ -9,9 +9,14 @@ describe("benchmark fixture paths", () => {
     expect(resolveFixturePath(repository, "src/example.ts")).toBe(
       resolve(repository, "src", "example.ts"),
     );
+    expect(resolveFixturePath(repository, "src\\example.ts")).toBe(
+      resolve(repository, "src", "example.ts"),
+    );
     expect(resolveFixturePath(repository, "..config")).toBe(resolve(repository, "..config"));
     expect(() => resolveFixturePath(repository, "../escaped.txt")).toThrow(/leaves the benchmark repository/i);
     expect(() => resolveFixturePath(repository, "..\\escaped.txt")).toThrow(/leaves the benchmark repository/i);
     expect(() => resolveFixturePath(repository, "/absolute.txt")).toThrow(/absolute/i);
+    expect(() => resolveFixturePath(repository, "\\absolute.txt")).toThrow(/absolute/i);
+    expect(() => resolveFixturePath(repository, "C:\\absolute.txt")).toThrow(/absolute/i);
   });
 });
