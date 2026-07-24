@@ -1,0 +1,17 @@
+{
+  "caseId": "hidden-central-line",
+  "mode": "positive",
+  "expectedLocations": [
+    {
+      "path": "src/core/dispatch.ts",
+      "side": "current",
+      "start": 3,
+      "end": 3
+    }
+  ],
+  "requiredAnyReasons": [
+    "SMALL_HUNK_BROAD_REACH",
+    "SENSITIVE_SHARED_PATH",
+    "BROAD_TEXTUAL_REACH"
+  ]
+}

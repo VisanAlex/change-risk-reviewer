@@ -1,0 +1,11 @@
+{
+  "id": "missing-structure",
+  "description": "A baseline repository has no semantic graph or language intelligence.",
+  "baseFiles": {
+    "src/feature.ts": "export const feature = false;\n"
+  },
+  "headFiles": {
+    "src/feature.ts": "export const feature = true;\n"
+  },
+  "generatedGroups": []
+}

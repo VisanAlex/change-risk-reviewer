@@ -1,0 +1,13 @@
+{
+  "id": "isolated-change",
+  "description": "A small isolated value change with a corresponding test should remain contextual.",
+  "baseFiles": {
+    "src/local-value.ts": "export const localValue = 1;\n",
+    "tests/local-value.test.ts": "test(\"local value\", () => { expect(1).toBe(1); });\n"
+  },
+  "headFiles": {
+    "src/local-value.ts": "export const localValue = 2;\n",
+    "tests/local-value.test.ts": "test(\"local value\", () => { expect(2).toBe(2); });\n"
+  },
+  "generatedGroups": []
+}

@@ -1,6 +1,9 @@
 {
   "name": "change-risk-reviewer",
   "description": "Evidence-first review compression for risky code changes.",
+  "metadata": {
+    "description": "Evidence-first review compression for risky code changes."
+  },
   "owner": {
     "name": "Change Risk Reviewer contributors"
   },

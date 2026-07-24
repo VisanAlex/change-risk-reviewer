@@ -18,3 +18,7 @@ or client information to fixtures.
 
 The project does not accept rules that infer risk solely from AI authorship,
 diff size, or an opaque aggregate score.
+
+Read [docs/contributing-benchmarks.md](docs/contributing-benchmarks.md) before
+adding an escaped-regression case. Oracles must remain separate from fixture
+inputs and are loaded only after capture.

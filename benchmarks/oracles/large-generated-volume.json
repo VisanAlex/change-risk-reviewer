@@ -1,0 +1,17 @@
+{
+  "caseId": "large-generated-volume",
+  "mode": "positive",
+  "expectedLocations": [
+    {
+      "path": "src/shared/registry.ts",
+      "side": "current",
+      "start": 2,
+      "end": 2
+    }
+  ],
+  "requiredAnyReasons": [
+    "SMALL_HUNK_BROAD_REACH",
+    "SENSITIVE_SHARED_PATH",
+    "BROAD_TEXTUAL_REACH"
+  ]
+}

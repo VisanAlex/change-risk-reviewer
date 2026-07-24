@@ -1,0 +1,22 @@
+{
+  "id": "hidden-central-line",
+  "description": "A one-line guard reversal in a shared dispatcher is hidden by feature-file volume.",
+  "baseFiles": {
+    "src/core/dispatch.ts": "export interface Context { enabled: boolean }\nexport function dispatch(context: Context): string {\n  if (!context.enabled) return \"skipped\";\n  return \"handled\";\n}\n"
+  },
+  "headFiles": {
+    "src/core/dispatch.ts": "export interface Context { enabled: boolean }\nexport function dispatch(context: Context): string {\n  if (context.enabled) return \"skipped\";\n  return \"handled\";\n}\n"
+  },
+  "generatedGroups": [
+    {
+      "count": 12,
+      "pathTemplate": "src/features/consumer-{index}.ts",
+      "baseContentTemplate": "import { dispatch } from \"../core/dispatch\";\nexport const consumer{index} = dispatch({ enabled: true });\n"
+    },
+    {
+      "count": 24,
+      "pathTemplate": "src/generated/feature-{index}.generated.ts",
+      "headContentTemplate": "export const generatedFeature{index} = { id: {index}, enabled: true };\n"
+    }
+  ]
+}

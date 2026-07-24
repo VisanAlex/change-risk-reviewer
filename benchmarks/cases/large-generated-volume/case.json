@@ -1,0 +1,22 @@
+{
+  "id": "large-generated-volume",
+  "description": "Generated additions must not bury a small connected registry change.",
+  "baseFiles": {
+    "src/shared/registry.ts": "export function register(name: string): string {\n  if (name.length === 0) throw new Error(\"name required\");\n  return name;\n}\n"
+  },
+  "headFiles": {
+    "src/shared/registry.ts": "export function register(name: string): string {\n  if (name.length > 0) throw new Error(\"name required\");\n  return name;\n}\n"
+  },
+  "generatedGroups": [
+    {
+      "count": 8,
+      "pathTemplate": "src/modules/module-{index}.ts",
+      "baseContentTemplate": "import { register } from \"../shared/registry\";\nexport const module{index} = register(\"module-{index}\");\n"
+    },
+    {
+      "count": 32,
+      "pathTemplate": "src/generated/model-{index}.generated.ts",
+      "headContentTemplate": "export interface GeneratedModel{index} { id: number; label: string }\n"
+    }
+  ]
+}

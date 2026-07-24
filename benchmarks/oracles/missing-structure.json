@@ -1,0 +1,8 @@
+{
+  "caseId": "missing-structure",
+  "mode": "capability",
+  "requiredUnavailableCollectors": [
+    "language-intelligence"
+  ],
+  "maximumElevated": 0
+}
