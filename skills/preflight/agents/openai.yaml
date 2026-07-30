@@ -1,0 +1,4 @@
+interface:
+  display_name: "Preflight Product Impact"
+  short_description: "Map current behavior and change impact"
+  default_prompt: "Use $preflight to analyze this task against the current application and map current behavior, direct and indirect impact, business contracts, and unknowns."

@@ -50,6 +50,14 @@ export async function validatePackaging() {
 
   await assertExists("skills/review/SKILL.md");
   await assertExists("skills/review/agents/openai.yaml");
+  await assertExists("skills/preflight/SKILL.md");
+  await assertExists("skills/preflight/agents/openai.yaml");
+  await assertExists("skills/preflight/references/evidence-rules.md");
+  await assertExists("skills/preflight/references/report-contract.md");
+  await assertExists("skills/stories/SKILL.md");
+  await assertExists("skills/stories/agents/openai.yaml");
+  await assertExists("skills/stories/references/story-rules.md");
+  await assertExists("skills/stories/references/report-contract.md");
 
   const manifestText = JSON.stringify({ codex, claude });
   for (const forbidden of ["verified facts", "review first", "coverage limits"]) {
@@ -59,7 +67,11 @@ export async function validatePackaging() {
   return {
     name: codex.name,
     version: codex.version,
-    skill: "skills/review/SKILL.md",
+    skills: [
+      "skills/preflight/SKILL.md",
+      "skills/stories/SKILL.md",
+      "skills/review/SKILL.md",
+    ],
   };
 }
 

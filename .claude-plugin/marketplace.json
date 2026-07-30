@@ -1,8 +1,8 @@
 {
   "name": "change-risk-reviewer",
-  "description": "Evidence-first review compression for risky code changes.",
+  "description": "Evidence-first product preflight, repository-grounded stories, and change review.",
   "metadata": {
-    "description": "Evidence-first review compression for risky code changes."
+    "description": "Evidence-first product preflight, repository-grounded stories, and change review."
   },
   "owner": {
     "name": "Alex Visan"
@@ -11,7 +11,7 @@
     {
       "name": "change-risk-reviewer",
       "source": "./",
-      "description": "Review working or committed Git changes for hidden impact",
+      "description": "Analyze product impact, write grounded stories, and review Git changes",
       "category": "Development",
       "tags": ["code-review", "risk", "git"]
     }

@@ -1,6 +1,6 @@
 ---
 name: review
-description: Review Git changes—not an entire repository—for hidden impact and prioritize the few changed locations a human should inspect first. Use after edits or commits, before a PR, merge, or deploy, or when asked to review my changes, check this branch, compare a base to HEAD, find hidden impact, or say what deserves attention. Handles the current working diff and explicit committed revision ranges.
+description: Review Git changes—not an entire repository—for hidden impact and prioritize the few changed locations a human should inspect first. Use after edits or commits, before a PR, merge, or deploy, or when asked to review my changes, check this branch, compare a base to HEAD, find hidden impact, or say what deserves attention. Handles the current working diff and explicit committed revision ranges. Use preflight for initial product impact analysis and stories for repository-grounded technical stories before development.
 ---
 
 # Change Risk Review

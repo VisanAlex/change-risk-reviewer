@@ -38,6 +38,8 @@ git diff --exit-code -- skills/review/scripts/analyze.mjs
 Validate the skill and Claude plugin:
 
 ```sh
+skills-ref validate skills/preflight
+skills-ref validate skills/stories
 skills-ref validate skills/review
 claude plugin validate .
 ```
@@ -55,6 +57,12 @@ claude plugin validate .
 
 - [ ] Add the extracted/local marketplace with `codex plugin marketplace add`.
 - [ ] Restart the desktop app and install the cached plugin copy.
+- [ ] Invoke `$change-risk-reviewer:preflight` with an accessible local
+  prototype and target repository. Confirm it cites both sides, reports
+  unknowns, and does not treat language choice as risk.
+- [ ] Invoke `$change-risk-reviewer:stories` with finalized requirements, a
+  preflight report, and the current repository. Confirm it rechecks the
+  repository, maps every requirement, and discloses drift and blocked items.
 - [ ] Invoke `$change-risk-reviewer:review` against the
   `hidden-central-line` fixture.
 - [ ] Record the host version, exact archive hash, first-ranked location,
@@ -66,6 +74,10 @@ claude plugin validate .
 
 - [ ] Run `claude plugin validate .` on the extracted archive.
 - [ ] Add and install the extracted marketplace.
+- [ ] Invoke `/change-risk-reviewer:preflight` with the same prototype and
+  target used for the Codex smoke.
+- [ ] Invoke `/change-risk-reviewer:stories` with the same finalized
+  requirements and repository used for the Codex smoke.
 - [ ] Invoke `/change-risk-reviewer:review` against the same fixture.
 - [ ] Record the host version, exact archive hash, first-ranked location,
   evidence labels, and disclosed limits.
