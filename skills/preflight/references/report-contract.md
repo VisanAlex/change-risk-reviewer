@@ -14,11 +14,15 @@ small number of contracts that deserve attention before design is finalized.
 
 ### Direct
 
-- <screen, flow, service, data, or integration explicitly changed>
+- <existing screen, flow, service, data, or integration explicitly changed;
+  exact proposal citation and exact target citation>
+- <new proposal-only screen, route, service, data, or integration; exact
+  proposal citation and `new proposal scope` label>
 
 ### Indirect
 
-- <related surface, evidence-backed relationship, and possible effect>
+- <related existing surface, exact target evidence for the relationship, and
+  possible effect>
 
 ## Preflight first
 
@@ -51,7 +55,16 @@ small number of contracts that deserve attention before design is finalized.
 
 ## Finding requirements
 
-- Give every current-behavior and impact-map claim an exact target citation.
+- Give every current-behavior claim an exact target citation.
+- Give impact-map claims evidence appropriate to the claim:
+  - direct changes to existing behavior need exact proposal and target
+    citations;
+  - proposal-only additions need an exact proposal citation and a
+    `new proposal scope` label, but do not require a target citation;
+  - indirect impact needs exact target evidence for the relationship to the
+    affected existing surface.
+- Never attach an unrelated target location merely to satisfy the report
+  shape for a proposal-only addition.
 - Distinguish direct proposal scope from indirect evidence-backed impact.
 - Do not infer indirect impact from file proximity or naming alone.
 - Report no more than five findings and prefer one to three.

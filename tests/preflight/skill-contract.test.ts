@@ -67,6 +67,18 @@ describe("preflight skill contract", () => {
     expect(metadata).toMatch(/direct and indirect impact/i);
   });
 
+  it("allows proposal-only direct impact without invented target evidence", async () => {
+    const report = await readSkillFile("references/report-contract.md");
+
+    expect(report).toMatch(/proposal-only additions need an exact proposal citation/i);
+    expect(report).toMatch(/do not require a target citation/i);
+    expect(report).toMatch(
+      /direct changes to existing behavior need exact proposal and target\s+citations/i,
+    );
+    expect(report).toMatch(/indirect impact needs exact target evidence/i);
+    expect(report).toMatch(/never attach an unrelated target location/i);
+  });
+
   it("forbids safety verdicts and unsupported language risk", async () => {
     const [skill, report] = await Promise.all([
       readSkillFile("SKILL.md"),
