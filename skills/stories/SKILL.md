@@ -66,8 +66,12 @@ alter the analysis, disclose them and confirm which state is authoritative.
      related contracts or consumers per area.
    - Prioritize current behavior, shared business rules, validation, policies,
      persistence, jobs, events, integrations, and tests that document behavior.
-   - Cite exact repository locations. Preserve revision fidelity instead of
-     relying on the current checkout for a named revision.
+   - Cite exact repository locations for claims about existing behavior and
+     affected existing areas. When a finalized requirement introduces a wholly
+     new area with no current counterpart, cite the requirement and label it
+     `new proposal scope` instead of inventing a repository location.
+   - Preserve revision fidelity instead of relying on the current checkout for
+     a named revision.
 4. **Reconcile intent with current behavior.**
    - Identify the current-to-desired delta for each requirement.
    - Map directly affected screens, flows, services, and data.
@@ -87,6 +91,8 @@ alter the analysis, disclose them and confirm which state is authoritative.
 6. **Prove coverage.**
    - Map every requirement to at least one primary story.
    - Mark requirements with incomplete evidence as `partial` or `blocked`.
+     A missing repository counterpart is not incomplete evidence when a
+     finalized requirement explicitly establishes `new proposal scope`.
    - Detect duplicated story scope, uncovered requirements, circular
      dependencies, and acceptance scenarios that do not test the stated delta.
 7. Read [story-rules.md](references/story-rules.md), then

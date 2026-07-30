@@ -19,7 +19,8 @@ important claims and disclose revision or behavior drift.
 
 For every requirement, record:
 
-- current behavior with repository evidence;
+- current behavior with repository evidence, or `new proposal scope` with
+  requirement evidence when no current counterpart applies;
 - desired behavior with requirement evidence;
 - the smallest meaningful behavioral difference;
 - direct and indirect affected areas;
@@ -64,10 +65,13 @@ repository evidence makes that distinction material.
 
 ## Components and files
 
-List components, files, routes, services, policies, jobs, events, tables, or
-integrations only when repository evidence supports their relevance. Describe
-them as affected or candidate areas. Do not turn an existing implementation
-detail into a mandatory future design without a finalized decision.
+List existing components, files, routes, services, policies, jobs, events,
+tables, or integrations only when repository evidence supports their
+relevance. A wholly new area may instead be supported by a finalized
+requirement; label it `new proposal scope` and do not imply that it already
+exists. Describe existing areas as affected or candidate areas. Do not turn an
+existing implementation detail into a mandatory future design without a
+finalized decision.
 
 ## Coverage status
 

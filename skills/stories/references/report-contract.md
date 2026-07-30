@@ -12,8 +12,10 @@ whether the current repository has materially drifted from it.
 ```text
 ## Repository recheck
 
-- Current behavior: <fact with exact repository citation>
-- Direct impact: <surface and evidence>
+- Current behavior: <fact with exact repository citation, or `new proposal
+  scope` with requirement evidence when no current counterpart applies>
+- Direct impact: <existing surface with repository evidence, or new area with
+  requirement evidence and a `new proposal scope` label>
 - Indirect impact: <surface, relationship, and evidence>
 - Drift since preflight: <verified change or none observed>
 
@@ -28,16 +30,23 @@ Objective:
 <user or operational outcome>
 
 Current behavior:
-<verified repository behavior with exact citations>
+<verified repository behavior with exact citations, or `new proposal scope`
+with requirement evidence when no current counterpart applies>
 
 Desired behavior:
 <finalized requirement with artifact citation or user-stated decision>
+
+Delta:
+<smallest meaningful behavioral difference between current and desired
+behavior>
 
 Scope:
 - <behavior included>
 
 Affected areas:
-- <component or file and why it is relevant>
+- <existing component or file with exact repository citation and why it is
+  relevant, or proposed area with requirement evidence and a `new proposal
+  scope` label>
 
 Business contracts:
 - <rule that must remain true>
@@ -56,9 +65,9 @@ Out of scope:
 
 ## Requirement coverage
 
-| Requirement | Primary story | Status | Repository evidence |
+| Requirement | Primary story | Status | Evidence |
 |---|---|---|---|
-| REQ-001 | STORY-001 | ready | path:lines |
+| REQ-001 | STORY-001 | ready | path:lines or `new proposal scope`: requirement citation |
 
 ## Cross-story risks and dependencies
 
@@ -81,7 +90,8 @@ stories` with:
 
 - Requirements: <REQ IDs>
 - Outcome: <one independently verifiable result>
-- Current behavior: <fact and exact repository citation>
+- Current behavior: <fact and exact repository citation, or `new proposal
+  scope` with requirement evidence>
 - Desired behavior: <requirement evidence>
 - Delta: <specific difference>
 - Direct impact: <areas and evidence>
@@ -100,11 +110,22 @@ conversation.
 
 ## Contract rules
 
-- Give every current-behavior or affected-area claim an exact repository
+- Give every claim about existing current behavior or an affected existing area
+  an exact repository citation.
+- For a wholly new area with no current counterpart, give exact requirement
+  evidence and label it `new proposal scope`; do not require a repository
   citation.
+- Never attach an unrelated repository location merely to satisfy the story
+  shape for `new proposal scope`.
+- Indirect impact on an existing surface still requires exact repository
+  evidence for the relationship.
 - Give every desired-behavior claim a requirement citation or label it as a
   user-stated decision.
+- Give every complete story an explicit `Delta` that states the smallest
+  meaningful behavioral difference between current and desired behavior.
 - Do not report `ready` when a material product decision remains unresolved.
+- Do not mark a finalized requirement `partial` or `blocked` merely because its
+  `new proposal scope` has no repository counterpart.
 - Do not silently omit requirements that do not fit a story. Mark them
   `partial` or `blocked`.
 - Do not call textual references runtime call sites.
