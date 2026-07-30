@@ -1,0 +1,4 @@
+interface:
+  display_name: "Write Repository-Grounded Stories"
+  short_description: "Turn verified repository deltas into stories"
+  default_prompt: "Use $stories to recheck the current repository against the finalized requirements and write technical stories with coverage, components, dependencies, and acceptance scenarios."

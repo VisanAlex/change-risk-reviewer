@@ -25,6 +25,12 @@ describe("plugin layout", () => {
     expect(codex.skills).toBe("./skills/");
     expect(claude.skills).toBe("./skills/");
     await expect(readFile(resolve(root, "skills/review/SKILL.md"), "utf8")).resolves.toContain("name: review");
+    await expect(readFile(resolve(root, "skills/preflight/SKILL.md"), "utf8")).resolves.toContain(
+      "name: preflight",
+    );
+    await expect(readFile(resolve(root, "skills/stories/SKILL.md"), "utf8")).resolves.toContain(
+      "name: stories",
+    );
   });
 
   it("keeps report restraint and bounded-analysis wording developer-facing", async () => {

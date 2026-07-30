@@ -55,6 +55,14 @@ describe("release archive", () => {
     expect(files).toContain(".agents/plugins/marketplace.json");
     expect(files).toContain("skills/review/SKILL.md");
     expect(files).toContain("skills/review/scripts/analyze.mjs");
+    expect(files).toContain("skills/preflight/SKILL.md");
+    expect(files).toContain("skills/preflight/agents/openai.yaml");
+    expect(files).toContain("skills/preflight/references/evidence-rules.md");
+    expect(files).toContain("skills/preflight/references/report-contract.md");
+    expect(files).toContain("skills/stories/SKILL.md");
+    expect(files).toContain("skills/stories/agents/openai.yaml");
+    expect(files).toContain("skills/stories/references/story-rules.md");
+    expect(files).toContain("skills/stories/references/report-contract.md");
     expect(files).toContain("scripts/validate-packaging.mjs");
     expect(files).toContain("LICENSE");
     expect(files).toContain("README.md");

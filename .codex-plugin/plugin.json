@@ -1,7 +1,7 @@
 {
   "name": "change-risk-reviewer",
-  "version": "0.1.0",
-  "description": "Review working or committed Git changes for hidden impact.",
+  "version": "0.3.0",
+  "description": "Analyze product impact, write grounded stories, and review Git changes.",
   "author": {
     "name": "Alex Visan"
   },
@@ -12,12 +12,14 @@
   "skills": "./skills/",
   "interface": {
     "displayName": "Change Risk Reviewer",
-    "shortDescription": "Review code changes before they merge",
-    "longDescription": "Compress a working diff or committed branch range into evidence-backed locations a human should inspect first.",
+    "shortDescription": "Preflight, stories, and change review",
+    "longDescription": "Map current behavior before design, recheck the repository for technical stories, then compress implemented Git changes into evidence-backed locations a human should inspect first.",
     "developerName": "Alex Visan",
     "category": "Productivity",
     "capabilities": ["Read"],
     "defaultPrompt": [
+      "Analyze this requirement against the current application and map direct and indirect impact.",
+      "Recheck the repository against the finalized design and write technical stories.",
       "I finished a code change. Review the working diff for hidden impact.",
       "Review committed changes from origin/main to HEAD.",
       "Before I open this PR, tell me which changed lines deserve attention first."

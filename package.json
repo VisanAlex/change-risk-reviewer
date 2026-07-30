@@ -1,7 +1,7 @@
 {
   "name": "change-risk-reviewer",
-  "version": "0.1.0",
-  "description": "Evidence-first review compression for risky code changes.",
+  "version": "0.3.0",
+  "description": "Evidence-first product preflight, repository-grounded stories, and change review.",
   "private": true,
   "type": "module",
   "license": "MIT",

@@ -1,7 +1,7 @@
 {
   "name": "change-risk-reviewer",
-  "version": "0.1.0",
-  "description": "Review working or committed Git changes for hidden impact.",
+  "version": "0.3.0",
+  "description": "Analyze product impact, write grounded stories, and review Git changes.",
   "author": {
     "name": "Alex Visan"
   },

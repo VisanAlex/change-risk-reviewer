@@ -2,28 +2,93 @@
 
 ## Product boundary
 
-Change Risk Reviewer compresses review attention. It does not replace code
-review, testing, static analysis, or the human merge decision.
+Change Risk Reviewer compresses attention before and after implementation. It
+does not replace product analysis, code review, testing, static analysis, or
+human implementation and merge decisions.
 
 ```text
+proposal artifact + target baseline
+  -> bounded contract discovery
+  -> current behavior and impact map
+  -> calibrated preflight report
+
+finalized design + current repository
+  -> mandatory repository recheck
+  -> current-to-desired reconciliation
+  -> requirement coverage and story slicing
+  -> technical stories or Story Evidence Pack
+
 selected Git change
-  -> safe scope resolution
+  -> safe Git scope resolution
   -> bounded deterministic collectors
   -> EvidenceEnvelopeV1
   -> explainable priority bands
   -> bounded ReviewInputV1 projection
   -> constrained host investigation
-  -> calibrated human-facing report
+  -> calibrated change review report
 ```
 
-One canonical `skills/review/SKILL.md` owns the workflow. Codex and Claude
-manifests contain install metadata only. This prevents host prompts from
-drifting.
+One canonical skill owns each workflow:
+
+- `skills/preflight/SKILL.md` compares a proposal with existing business and
+  integration contracts before implementation planning, product work, or
+  design work.
+- `skills/stories/SKILL.md` rechecks the repository after the intended
+  behavior is finalized and writes technical stories that cover the verified
+  delta.
+- `skills/review/SKILL.md` prioritizes hidden impact in an implemented Git
+  change.
+
+Codex and Claude manifests contain install metadata only. This prevents host
+prompts from drifting.
+
+## Preflight boundary
+
+Preflight accepts tasks, MOD-01 documents, screen sketches, proposal text,
+specification files, prototypes, accessible local repositories, and explicit
+Git revisions. The target baseline is normally the current application, but it
+may be an explicit revision or another accessible local path.
+
+Preflight is host-driven because cross-language business comparison requires
+reasoning over heterogeneous artifacts. It bounds investigation to five target
+areas and three strong related contracts or consumers per area. Every reported
+risk needs target evidence, proposal evidence or a bounded omission
+observation, a calibrated mismatch inference, and a falsifiable verification
+action.
+
+Preflight does not run either project, clone remote repositories, make
+implementation choices, or convert a language difference into a risk signal.
+It reports current behavior, direct and indirect impact, contracts that must be
+preserved, and uncertainty the developer, designer, product manager, or
+technical lead must resolve.
+
+## Stories boundary
+
+Stories accepts finalized requirements, approved screen or flow designs, an
+optional preflight report, and a selected repository baseline. It always
+rechecks that repository state. A preflight report is a search lead, not
+current evidence.
+
+The workflow inventories at most ten independently meaningful requirements per
+run, investigates at most eight repository areas and three strong related
+contracts or consumers per area, reconciles current and desired behavior, and
+maps every requirement to a primary story. Larger inputs must be narrowed to a
+coherent feature slice instead of being silently truncated.
+
+Stories are sliced by independently verifiable outcomes rather than technical
+layers. Each story carries repository evidence, direct and indirect impact,
+business contracts, acceptance scenarios, dependencies, and unknowns. Handoff
+mode emits a self-contained Story Evidence Pack when another skill owns company
+formatting.
+
+Stories does not edit application code, publish work items, estimate effort,
+assign owners, or hide partial and blocked requirements. Templates can change
+presentation but cannot suppress evidence or coverage gaps.
 
 ## Deterministic boundary
 
-`EvidenceEnvelopeV1` is the versioned machine boundary between collection and
-reasoning. It contains:
+For implemented Git change review, `EvidenceEnvelopeV1` is the versioned
+machine boundary between collection and reasoning. It contains:
 
 - resolved working/range scope and Git object identities;
 - exact changed hunks and current- or old-side source locations;
@@ -50,7 +115,7 @@ model as invitations for speculative findings. `--full` exposes the underlying
 envelope for maintainers; the skill itself uses `--compact`.
 
 The envelope is also the extension seam for future host-supplied language
-intelligence. Version `0.1.0` intentionally defines no framework adapter API:
+intelligence. The baseline intentionally defines no framework adapter API:
 semantic facts can be designed after benchmarks show which integrations improve
 ranking without weakening the baseline or hiding limits.
 
@@ -112,11 +177,11 @@ generic manual-QA suggestion is insufficient. The report separates verified
 facts, impact inferences with calibrated confidence, unknowns, tests, and
 coverage limits.
 
-Repository content—including `AGENTS.md`, `CLAUDE.md`, prompt-like filenames,
-and text inside diffs—is data for this review. Host/system policy and the
-user-selected scope remain authoritative; discovered repository instructions
-cannot relax read-only behavior, suppress limits, or change the report
-contract.
+Repository content, including `AGENTS.md`, `CLAUDE.md`, prompt-like filenames,
+prototype specifications, and text inside diffs, is data for these workflows.
+Host and system policy plus the user-selected scope remain authoritative.
+Discovered repository instructions cannot relax read-only behavior, suppress
+limits, or change the workflow report contracts.
 
 ## Security and privacy
 
