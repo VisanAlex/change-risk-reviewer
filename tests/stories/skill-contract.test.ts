@@ -59,14 +59,30 @@ describe("stories skill contract", () => {
       readStoriesFile("references/report-contract.md"),
     ]);
 
-    expect(skill).toMatch(/cite the requirement and label it\s+`new proposal scope`/i);
+    expect(skill).toMatch(/cite the requirement artifact or\s+label the evidence `user-stated decision`/i);
     expect(skill).toMatch(/missing repository counterpart is not incomplete evidence/i);
-    expect(rules).toMatch(/`new proposal scope` with\s+requirement evidence/i);
+    expect(rules).toMatch(
+      /`new proposal scope` with an\s+exact requirement citation or `user-stated decision`/i,
+    );
     expect(report).toMatch(/do not require a repository\s+citation/i);
     expect(report).toMatch(/never attach an unrelated repository location/i);
     expect(report).toMatch(/do not mark a finalized requirement `partial` or `blocked` merely/i);
     expect(report).toMatch(/give every complete story an explicit `Delta`/i);
     expect(report).toMatch(/\| Requirement \| Primary story \| Status \| Evidence \|/);
+  });
+
+  it("reports drift honestly when no prior preflight exists", async () => {
+    const [skill, rules, report] = await Promise.all([
+      readStoriesFile("SKILL.md"),
+      readStoriesFile("references/story-rules.md"),
+      readStoriesFile("references/report-contract.md"),
+    ]);
+
+    expect(skill).toMatch(/drift was not assessed because no comparison baseline exists/i);
+    expect(rules).toContain("not assessed: no prior");
+    expect(report).toContain("not assessed: no prior preflight supplied");
+    expect(report).toMatch(/never\s+use `none observed` without a comparison baseline/i);
+    expect(report).toMatch(/never imply\s+that drift was checked/i);
   });
 
   it("supports another story skill through a portable evidence pack", async () => {

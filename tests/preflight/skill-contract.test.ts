@@ -70,10 +70,11 @@ describe("preflight skill contract", () => {
   it("allows proposal-only direct impact without invented target evidence", async () => {
     const report = await readSkillFile("references/report-contract.md");
 
-    expect(report).toMatch(/proposal-only additions need an exact proposal citation/i);
-    expect(report).toMatch(/do not require a target citation/i);
+    expect(report).toMatch(/proposal-only additions need either an exact proposal citation or/i);
+    expect(report).toMatch(/`user-stated proposal`, plus a `new proposal scope` label/i);
+    expect(report).toMatch(/do not\s+require a target citation/i);
     expect(report).toMatch(
-      /direct changes to existing behavior need exact proposal and target\s+citations/i,
+      /direct changes to existing behavior need an exact target citation plus\s+either an exact proposal citation or `user-stated proposal`/i,
     );
     expect(report).toMatch(/indirect impact needs exact target evidence/i);
     expect(report).toMatch(/never attach an unrelated target location/i);

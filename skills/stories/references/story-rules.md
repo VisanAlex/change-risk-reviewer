@@ -14,13 +14,16 @@ Prefer:
 
 An earlier preflight statement is not current repository evidence. Recheck its
 important claims and disclose revision or behavior drift.
+When no earlier preflight was supplied, label drift `not assessed: no prior
+preflight supplied`; do not imply that a comparison found no drift.
 
 ## Current-to-desired delta
 
 For every requirement, record:
 
-- current behavior with repository evidence, or `new proposal scope` with
-  requirement evidence when no current counterpart applies;
+- current behavior with repository evidence, or `new proposal scope` with an
+  exact requirement citation or `user-stated decision` when no current
+  counterpart applies;
 - desired behavior with requirement evidence;
 - the smallest meaningful behavioral difference;
 - direct and indirect affected areas;
@@ -67,11 +70,11 @@ repository evidence makes that distinction material.
 
 List existing components, files, routes, services, policies, jobs, events,
 tables, or integrations only when repository evidence supports their
-relevance. A wholly new area may instead be supported by a finalized
-requirement; label it `new proposal scope` and do not imply that it already
-exists. Describe existing areas as affected or candidate areas. Do not turn an
-existing implementation detail into a mandatory future design without a
-finalized decision.
+relevance. A wholly new area may instead be supported by an exact finalized
+requirement citation or `user-stated decision`; label it `new proposal scope`
+and do not imply that it already exists. Describe existing areas as affected or
+candidate areas. Do not turn an existing implementation detail into a mandatory
+future design without a finalized decision.
 
 ## Coverage status
 

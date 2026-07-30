@@ -15,9 +15,9 @@ small number of contracts that deserve attention before design is finalized.
 ### Direct
 
 - <existing screen, flow, service, data, or integration explicitly changed;
-  exact proposal citation and exact target citation>
+  exact target citation plus exact proposal citation or `user-stated proposal`>
 - <new proposal-only screen, route, service, data, or integration; exact
-  proposal citation and `new proposal scope` label>
+  proposal citation or `user-stated proposal`, plus `new proposal scope` label>
 
 ### Indirect
 
@@ -57,10 +57,11 @@ small number of contracts that deserve attention before design is finalized.
 
 - Give every current-behavior claim an exact target citation.
 - Give impact-map claims evidence appropriate to the claim:
-  - direct changes to existing behavior need exact proposal and target
-    citations;
-  - proposal-only additions need an exact proposal citation and a
-    `new proposal scope` label, but do not require a target citation;
+  - direct changes to existing behavior need an exact target citation plus
+    either an exact proposal citation or `user-stated proposal`;
+  - proposal-only additions need either an exact proposal citation or
+    `user-stated proposal`, plus a `new proposal scope` label, but do not
+    require a target citation;
   - indirect impact needs exact target evidence for the relationship to the
     affected existing surface.
 - Never attach an unrelated target location merely to satisfy the report

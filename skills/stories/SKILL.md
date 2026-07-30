@@ -68,7 +68,8 @@ alter the analysis, disclose them and confirm which state is authoritative.
      persistence, jobs, events, integrations, and tests that document behavior.
    - Cite exact repository locations for claims about existing behavior and
      affected existing areas. When a finalized requirement introduces a wholly
-     new area with no current counterpart, cite the requirement and label it
+     new area with no current counterpart, cite the requirement artifact or
+     label the evidence `user-stated decision`, then label the area
      `new proposal scope` instead of inventing a repository location.
    - Preserve revision fidelity instead of relying on the current checkout for
      a named revision.
@@ -77,8 +78,9 @@ alter the analysis, disclose them and confirm which state is authoritative.
    - Map directly affected screens, flows, services, and data.
    - Map indirect impact only when shared state, a business contract, a
      centralized component, or an integration provides evidence.
-   - Compare the new repository evidence with any prior preflight report and
-     disclose material drift.
+   - When a prior preflight report exists, compare it with the new repository
+     evidence and disclose material drift. When none was supplied, state that
+     drift was not assessed because no comparison baseline exists.
    - Classify each requirement as `ready`, `partial`, or `blocked`.
 5. **Slice stories around outcomes.**
    - Give each story one independently understandable and verifiable outcome.

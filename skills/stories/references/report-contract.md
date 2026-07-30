@@ -6,6 +6,8 @@ Start every result with the selected requirements and repository state:
 
 If a prior preflight report was supplied, name its baseline and disclose
 whether the current repository has materially drifted from it.
+If none was supplied, state `not assessed: no prior preflight supplied`; never
+use `none observed` without a comparison baseline.
 
 ## Default output
 
@@ -13,11 +15,14 @@ whether the current repository has materially drifted from it.
 ## Repository recheck
 
 - Current behavior: <fact with exact repository citation, or `new proposal
-  scope` with requirement evidence when no current counterpart applies>
+  scope` with exact requirement citation or `user-stated decision` when no
+  current counterpart applies>
 - Direct impact: <existing surface with repository evidence, or new area with
-  requirement evidence and a `new proposal scope` label>
+  exact requirement citation or `user-stated decision` and a `new proposal
+  scope` label>
 - Indirect impact: <surface, relationship, and evidence>
-- Drift since preflight: <verified change or none observed>
+- Drift since preflight: <verified change | none observed | `not assessed: no
+  prior preflight supplied`>
 
 ## Technical stories
 
@@ -31,7 +36,8 @@ Objective:
 
 Current behavior:
 <verified repository behavior with exact citations, or `new proposal scope`
-with requirement evidence when no current counterpart applies>
+with exact requirement citation or `user-stated decision` when no current
+counterpart applies>
 
 Desired behavior:
 <finalized requirement with artifact citation or user-stated decision>
@@ -45,8 +51,8 @@ Scope:
 
 Affected areas:
 - <existing component or file with exact repository citation and why it is
-  relevant, or proposed area with requirement evidence and a `new proposal
-  scope` label>
+  relevant, or proposed area with exact requirement citation or `user-stated
+  decision` and a `new proposal scope` label>
 
 Business contracts:
 - <rule that must remain true>
@@ -67,7 +73,7 @@ Out of scope:
 
 | Requirement | Primary story | Status | Evidence |
 |---|---|---|---|
-| REQ-001 | STORY-001 | ready | path:lines or `new proposal scope`: requirement citation |
+| REQ-001 | STORY-001 | ready | path:lines, requirement citation, or `user-stated decision` |
 
 ## Cross-story risks and dependencies
 
@@ -91,7 +97,7 @@ stories` with:
 - Requirements: <REQ IDs>
 - Outcome: <one independently verifiable result>
 - Current behavior: <fact and exact repository citation, or `new proposal
-  scope` with requirement evidence>
+  scope` with exact requirement citation or `user-stated decision`>
 - Desired behavior: <requirement evidence>
 - Delta: <specific difference>
 - Direct impact: <areas and evidence>
@@ -112,9 +118,9 @@ conversation.
 
 - Give every claim about existing current behavior or an affected existing area
   an exact repository citation.
-- For a wholly new area with no current counterpart, give exact requirement
-  evidence and label it `new proposal scope`; do not require a repository
-  citation.
+- For a wholly new area with no current counterpart, give an exact requirement
+  citation or label it `user-stated decision`, then label the area
+  `new proposal scope`; do not require a repository citation.
 - Never attach an unrelated repository location merely to satisfy the story
   shape for `new proposal scope`.
 - Indirect impact on an existing surface still requires exact repository
@@ -123,6 +129,9 @@ conversation.
   user-stated decision.
 - Give every complete story an explicit `Delta` that states the smallest
   meaningful behavioral difference between current and desired behavior.
+- When a prior preflight exists, report verified drift or `none observed`.
+  Without one, report `not assessed: no prior preflight supplied`; never imply
+  that drift was checked.
 - Do not report `ready` when a material product decision remains unresolved.
 - Do not mark a finalized requirement `partial` or `blocked` merely because its
   `new proposal scope` has no repository counterpart.
